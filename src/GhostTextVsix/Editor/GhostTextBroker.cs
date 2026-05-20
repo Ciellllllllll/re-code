@@ -38,12 +38,43 @@ internal static class GhostTextBroker
 
     public static bool TryGetActiveSession(IWpfTextView view, out GhostTextSession session)
     {
-        return Sessions.TryGetValue(view, out session) && session.HasSuggestion;
+        if (Sessions.TryGetValue(view, out session) && session.HasSuggestion)
+        {
+            return true;
+        }
+
+        foreach (var entry in Sessions.ToArray())
+        {
+            if (!entry.Value.HasSuggestion ||
+                entry.Key == view ||
+                entry.Key.TextBuffer != view.TextBuffer)
+            {
+                continue;
+            }
+
+            session = entry.Value;
+            Sessions[view] = session;
+            _logger?.Warning($"GhostText active session remapped to current view. OriginalViewId={GetViewId(entry.Key)}, ViewId={GetViewId(view)}, RequestId={session.RequestId}, Source={session.Source}");
+            return true;
+        }
+
+        session = null;
+        return false;
     }
 
     public static bool IsActive(IWpfTextView view)
     {
         return TryGetActiveSession(view, out _);
+    }
+
+    public static bool HasActiveSession(IWpfTextView view)
+    {
+        return TryGetActiveSession(view, out _);
+    }
+
+    public static bool HasExactActiveSession(IWpfTextView view)
+    {
+        return Sessions.TryGetValue(view, out var session) && session.HasSuggestion;
     }
 
     public static void LogInfo(string message)
@@ -53,7 +84,23 @@ internal static class GhostTextBroker
 
     public static void Remove(IWpfTextView view)
     {
-        Sessions.TryRemove(view, out _);
+        ClearActiveSession(view, "Remove");
+    }
+
+    public static void ClearActiveSession(IWpfTextView view, string reason)
+    {
+        if (Sessions.TryRemove(view, out var session))
+        {
+            _logger?.Info($"GhostText active session view cleared. ViewId={GetViewId(view)}, RequestId={session.RequestId}, Source={session.Source}, Reason={reason}");
+        }
+    }
+
+    public static void ClearActiveSession(IWpfTextView view, long requestId, string source, string reason)
+    {
+        if (Sessions.TryRemove(view, out _))
+        {
+            _logger?.Info($"GhostText active session view cleared. ViewId={GetViewId(view)}, RequestId={requestId}, Source={source}, Reason={reason}");
+        }
     }
 
     public static void DismissAll(string reason)
@@ -124,9 +171,10 @@ internal static class GhostTextBroker
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             var viewId = GetViewId(view);
+            var hasExactActiveSession = Sessions.TryGetValue(view, out var exactSession) && exactSession.HasSuggestion;
             var hasActiveSessionForView = TryGetActiveSession(view, out _);
             var hasAnyActiveSession = Sessions.Any(static entry => entry.Value.HasSuggestion);
-            var textViewMatchesActiveSession = hasActiveSessionForView || !hasAnyActiveSession;
+            var textViewMatchesActiveSession = hasExactActiveSession || !hasAnyActiveSession;
             var asyncCompletionActive = IsAsyncCompletionActive(view, asyncCompletionBroker);
             var legacyCompletionActive = IsLegacyCompletionActive(view, legacyCompletionBroker);
 

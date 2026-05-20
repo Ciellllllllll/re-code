@@ -8,4 +8,5 @@ internal sealed class EditorContext
     public string Suffix { get; set; }
     public string CurrentLinePrefix { get; set; }
     public string CurrentLineIndent { get; set; }
+    public bool IsCurrentLineIndentOnly { get; set; }
 }

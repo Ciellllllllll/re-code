@@ -44,6 +44,7 @@ internal sealed class EditorContextCollector
         var currentLineText = line.GetText();
         var currentLinePrefix = snapshot.GetText(line.Start.Position, caretPosition - line.Start.Position);
         var indent = new string(currentLineText.TakeWhile(char.IsWhiteSpace).ToArray());
+        var isCurrentLineIndentOnly = string.IsNullOrWhiteSpace(currentLinePrefix);
 
         context = new EditorContext
         {
@@ -52,7 +53,8 @@ internal sealed class EditorContextCollector
             Prefix = _securityFilter.MaskSecrets(prefix),
             Suffix = _securityFilter.MaskSecrets(suffix),
             CurrentLinePrefix = _securityFilter.MaskSecrets(currentLinePrefix),
-            CurrentLineIndent = indent
+            CurrentLineIndent = indent,
+            IsCurrentLineIndentOnly = isCurrentLineIndentOnly
         };
 
         _logger.Info($"Collected context for {Path.GetFileName(filePath)} at position {caretPosition}.");

@@ -69,10 +69,10 @@ internal sealed class GhostTextTabKeyProcessor : KeyProcessor
             return;
         }
 
+        var textViewMatchesActiveSession = GhostTextBroker.HasExactActiveSession(_view);
         var ghostTextActive = GhostTextBroker.IsActive(_view);
         var asyncCompletionActive = IsAsyncCompletionSessionActive();
         var legacyCompletionActive = IsLegacyCompletionSessionActive();
-        var textViewMatchesActiveSession = GhostTextBroker.TryGetActiveSession(_view, out _);
         GhostTextBroker.LogInfo($"GhostText active on Tab={ghostTextActive}. Source=KeyProcessor.{eventName}, ViewId={GhostTextBroker.GetViewId(_view)}, Tab textView matches active session={textViewMatchesActiveSession}, AsyncCompletion active={asyncCompletionActive}, LegacyCompletion active={legacyCompletionActive}");
         if (!ghostTextActive)
         {

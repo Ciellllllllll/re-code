@@ -203,7 +203,7 @@ internal sealed class CompletionCoordinator
                 {
                     if (GhostTextBroker.TryShow(view, cachedCompletion, requestId, "Cache"))
                     {
-                        _logger.Info($"GhostText shown. ProviderName={requestOptions.ProviderConfig.ProviderName}, ModelName={requestOptions.ProviderConfig.ModelName}, RequestId={requestId}, Source=Cache, Lines={CountLines(cachedCompletion)}, Chars={cachedCompletion.Length}, LatencyMs={ElapsedMs(started):F0}, State={State}");
+                        _logger.Info($"GhostText shown. ProviderName={requestOptions.ProviderConfig.ProviderName}, ModelName={requestOptions.ProviderConfig.ModelName}, RequestId={requestId}, Source=Cache, ViewId={GhostTextBroker.GetViewId(view)}, Lines={CountLines(cachedCompletion)}, Chars={cachedCompletion.Length}, LatencyMs={ElapsedMs(started):F0}, State={State}");
                         _logger.Info($"Auto completion request succeeded. ProviderName={requestOptions.ProviderConfig.ProviderName}, ModelName={requestOptions.ProviderConfig.ModelName}, RequestId={requestId}, Source=Cache, Lines={CountLines(cachedCompletion)}, Chars={cachedCompletion.Length}, LatencyMs={ElapsedMs(started):F0}, State={State}");
                     }
                 }
@@ -255,7 +255,8 @@ internal sealed class CompletionCoordinator
                 return;
             }
 
-            var formatted = _formatter.Format(context, providerResponse.Text, requestOptions.MaxCompletionLines, requestOptions.MaxCompletionCharacters);
+            var formatted = _formatter.Format(context, providerResponse.Text, requestOptions.MaxCompletionLines, requestOptions.MaxCompletionCharacters, out var indentInfo);
+            _logger.Info($"Completion indent normalized. RequestId={requestId}, Source={requestOptions.Source}, CompletionMode={(isAutoCompletion ? CompletionMode.Auto : CompletionMode.Manual)}, BaseIndentLength={indentInfo.BaseIndentLength}, BaseIndentKind={indentInfo.BaseIndentKind}, LinesBefore={indentInfo.LinesBefore}, LinesAfter={indentInfo.LinesAfter}, FirstLineInline={indentInfo.FirstLineInline}, RemovedCommonIndentLength={indentInfo.RemovedCommonIndentLength}");
             if (string.IsNullOrWhiteSpace(formatted))
             {
                 SetState(CompletionState.Idle);
@@ -279,7 +280,7 @@ internal sealed class CompletionCoordinator
             _logger.Info($"Completion formatted. RequestId={requestId}, Source={requestOptions.Source}, Lines={CountLines(formatted)}, Chars={formatted.Length}, LatencyMs={ElapsedMs(started):F0}, State={State}");
             if (GhostTextBroker.TryShow(view, formatted, requestId, requestOptions.Source))
             {
-                _logger.Info($"GhostText shown. RequestId={requestId}, Source={requestOptions.Source}, Lines={CountLines(formatted)}, Chars={formatted.Length}, LatencyMs={ElapsedMs(started):F0}, State={State}");
+                _logger.Info($"GhostText shown. RequestId={requestId}, Source={requestOptions.Source}, ViewId={GhostTextBroker.GetViewId(view)}, Lines={CountLines(formatted)}, Chars={formatted.Length}, LatencyMs={ElapsedMs(started):F0}, State={State}");
                 if (isAutoCompletion)
                 {
                     _logger.Info($"Auto completion request succeeded. RequestId={requestId}, Source=Api, Lines={CountLines(formatted)}, Chars={formatted.Length}, LatencyMs={ElapsedMs(started):F0}, State={State}");

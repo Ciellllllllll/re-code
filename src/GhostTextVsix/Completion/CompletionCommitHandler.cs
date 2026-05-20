@@ -17,8 +17,7 @@ internal sealed class CompletionCommitHandler
 
     public bool TryAccept(IWpfTextView view)
     {
-        var session = GhostTextBroker.GetOrCreate(view);
-        if (!session.HasSuggestion)
+        if (!GhostTextBroker.TryGetActiveSession(view, out var session))
         {
             return false;
         }
@@ -30,13 +29,13 @@ internal sealed class CompletionCommitHandler
         _logger.Info($"Caret moved to inserted completion end. RequestId={requestId}, Source={source}, Position={insertedEnd}, State={_coordinator.State}");
         _coordinator.SetState(CompletionState.Idle);
         _logger.Info($"GhostText accepted. RequestId={requestId}, Source={source}, State={_coordinator.State}");
+        GhostTextBroker.ClearActiveSession(view, requestId, source, "Accepted");
         return true;
     }
 
     public bool TryDismiss(IWpfTextView view, string reason)
     {
-        var session = GhostTextBroker.GetOrCreate(view);
-        if (!session.HasSuggestion)
+        if (!GhostTextBroker.TryGetActiveSession(view, out var session))
         {
             return false;
         }
@@ -47,6 +46,7 @@ internal sealed class CompletionCommitHandler
         _coordinator.SetState(CompletionState.Dismissed);
         _coordinator.SetState(CompletionState.Idle);
         _logger.Info($"GhostText dismissed. RequestId={requestId}, Source={source}, Reason={reason}, State={_coordinator.State}");
+        GhostTextBroker.ClearActiveSession(view, requestId, source, reason);
         return true;
     }
 

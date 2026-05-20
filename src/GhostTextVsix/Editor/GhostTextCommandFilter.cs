@@ -63,7 +63,8 @@ internal sealed class GhostTextCommandFilter : IOleCommandTarget
             var ghostTextActive = GhostTextBroker.IsActive(_view);
             var legacyCompletionActive = IsLegacyCompletionSessionActive();
             var asyncCompletionActive = IsAsyncCompletionSessionActive();
-            GhostTextBroker.LogInfo($"Tab command received. CommandGroup={pguidCmdGroup}, CommandId={nCmdID}, CommandName={commandName}, ViewId={GhostTextBroker.GetViewId(_view)}, GhostText active on Tab={ghostTextActive}, AsyncCompletion active={asyncCompletionActive}, LegacyCompletion active={legacyCompletionActive}");
+            var textViewMatchesActiveSession = GhostTextBroker.HasExactActiveSession(_view);
+            GhostTextBroker.LogInfo($"Tab command received. CommandGroup={pguidCmdGroup}, CommandId={nCmdID}, CommandName={commandName}, ViewId={GhostTextBroker.GetViewId(_view)}, GhostText active on Tab={ghostTextActive}, Tab textView matches active session={textViewMatchesActiveSession}, AsyncCompletion active={asyncCompletionActive}, LegacyCompletion active={legacyCompletionActive}");
 
             if (ghostTextActive)
             {
@@ -73,7 +74,7 @@ internal sealed class GhostTextCommandFilter : IOleCommandTarget
                 }
             }
 
-            GhostTextBroker.LogInfo($"Tab passed to next command target. CommandGroup={pguidCmdGroup}, CommandId={nCmdID}, CommandName={commandName}, ViewId={GhostTextBroker.GetViewId(_view)}, GhostText active on Tab={ghostTextActive}, AsyncCompletion active={asyncCompletionActive}, LegacyCompletion active={legacyCompletionActive}");
+            GhostTextBroker.LogInfo($"Tab passed to next command target. CommandGroup={pguidCmdGroup}, CommandId={nCmdID}, CommandName={commandName}, ViewId={GhostTextBroker.GetViewId(_view)}, GhostText active on Tab={ghostTextActive}, Tab textView matches active session={textViewMatchesActiveSession}, AsyncCompletion active={asyncCompletionActive}, LegacyCompletion active={legacyCompletionActive}");
             return _next?.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut) ?? VSConstants.S_OK;
         }
 
