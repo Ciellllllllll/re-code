@@ -1,0 +1,16 @@
+.dotnet/
+.nuget/
+src/**/bin/
+src/**/obj/
+
+# Visual Studio local files
+.vs/
+*.suo
+*.user
+*.csproj.user
+
+# Build outputs
+bin/
+obj/
+.artifacts/
+*.vsix

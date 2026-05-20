@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable">
+  <Extern href="stdidcmd.h" />
+  <Extern href="vsshlids.h" />
+
+  <Commands package="guidGhostTextPackage">
+    <Groups>
+      <Group guid="guidGhostTextCmdSet" id="GhostTextGroup" priority="0x0600">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_TOOLS" />
+      </Group>
+    </Groups>
+
+    <Menus>
+      <Menu guid="guidGhostTextCmdSet" id="GhostTextMenu" priority="0x0100" type="Menu">
+        <Parent guid="guidGhostTextCmdSet" id="GhostTextGroup" />
+        <Strings>
+          <ButtonText>DeepSeek C/C++ Completion</ButtonText>
+        </Strings>
+      </Menu>
+    </Menus>
+
+    <Buttons>
+      <Button guid="guidGhostTextCmdSet" id="GenerateCompletionCommand" priority="0x0100" type="Button">
+        <Parent guid="guidGhostTextCmdSet" id="GhostTextMenu" />
+        <Strings>
+          <ButtonText>Generate Completion</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidGhostTextCmdSet" id="ToggleAutoCompletionCommand" priority="0x0110" type="Button">
+        <Parent guid="guidGhostTextCmdSet" id="GhostTextMenu" />
+        <Strings>
+          <ButtonText>Toggle Auto Completion</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidGhostTextCmdSet" id="OpenSettingsCommand" priority="0x0120" type="Button">
+        <Parent guid="guidGhostTextCmdSet" id="GhostTextMenu" />
+        <Strings>
+          <ButtonText>Open Settings</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidGhostTextCmdSet" id="ShowDiagnosticsCommand" priority="0x0130" type="Button">
+        <Parent guid="guidGhostTextCmdSet" id="GhostTextMenu" />
+        <Strings>
+          <ButtonText>Show Diagnostics</ButtonText>
+        </Strings>
+      </Button>
+    </Buttons>
+
+  </Commands>
+
+  <Symbols>
+    <GuidSymbol name="guidGhostTextPackage" value="{8069B8EC-D030-4EE5-8087-D8836B9B782D}" />
+    <GuidSymbol name="guidGhostTextCmdSet" value="{76536124-040C-4D72-9DC4-D3B184B79536}">
+      <IDSymbol name="GhostTextGroup" value="0x1020" />
+      <IDSymbol name="GhostTextMenu" value="0x1030" />
+      <IDSymbol name="GenerateCompletionCommand" value="0x0100" />
+      <IDSymbol name="ToggleAutoCompletionCommand" value="0x0101" />
+      <IDSymbol name="OpenSettingsCommand" value="0x0102" />
+      <IDSymbol name="ShowDiagnosticsCommand" value="0x0103" />
+    </GuidSymbol>
+  </Symbols>
+</CommandTable>
