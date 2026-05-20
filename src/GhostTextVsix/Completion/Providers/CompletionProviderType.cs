@@ -2,8 +2,12 @@ namespace GhostTextVsix.Completion.Providers;
 
 public enum CompletionProviderType
 {
+    NotConfigured,
     DeepSeek,
-    OpenAICompatible,
     OpenRouter,
+    Codestral,
+    Gemini,
+    Groq,
+    OpenAICompatible,
     LocalOpenAICompatible
 }

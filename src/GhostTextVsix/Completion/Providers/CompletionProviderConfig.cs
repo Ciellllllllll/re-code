@@ -22,6 +22,12 @@ internal sealed class CompletionProviderConfig
 
     public bool IsLocal { get; set; }
 
+    public bool RequiresApiKey { get; set; }
+
+    public bool IsImplemented { get; set; }
+
+    public bool IsConfigured => ProviderType != CompletionProviderType.NotConfigured;
+
     public bool SupportsChatCompletions { get; set; } = true;
 
     public bool SupportsFimCompletions { get; set; }

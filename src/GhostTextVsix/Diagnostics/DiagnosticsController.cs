@@ -23,6 +23,11 @@ internal sealed class DiagnosticsController
         _logger.Activate();
         var autoProvider = _settingsManager.GetAutoProviderConfig();
         var manualProvider = _settingsManager.GetManualProviderConfig();
-        _logger.Info($"State={_coordinator.State}, AutoCompletion={_settingsManager.IsAutoCompletionEnabled()}, AutoProvider={autoProvider.ProviderName}, AutoModel={autoProvider.ModelName}, AutoApiKeyConfigured={autoProvider.IsLocal || !string.IsNullOrWhiteSpace(autoProvider.ApiKey)}, ManualProvider={manualProvider.ProviderName}, ManualModel={manualProvider.ModelName}, ManualApiKeyConfigured={manualProvider.IsLocal || !string.IsNullOrWhiteSpace(manualProvider.ApiKey)}");
+        _logger.Info($"AutoProvider={autoProvider.ProviderName}, AutoProviderConfigured={autoProvider.IsConfigured}, AutoApiKeyConfigured={IsApiKeyConfigured(autoProvider)}, AutoModel={autoProvider.ModelName}, ManualProvider={manualProvider.ProviderName}, ManualProviderConfigured={manualProvider.IsConfigured}, ManualApiKeyConfigured={IsApiKeyConfigured(manualProvider)}, ManualModel={manualProvider.ModelName}, EnableAutoCompletion={_settingsManager.IsAutoCompletionEnabled()}, State={_coordinator.State}");
+    }
+
+    private static bool IsApiKeyConfigured(Completion.Providers.CompletionProviderConfig config)
+    {
+        return !config.RequiresApiKey || !string.IsNullOrWhiteSpace(config.ApiKey);
     }
 }

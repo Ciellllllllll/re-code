@@ -55,8 +55,8 @@ internal class OpenAICompatibleCompletionProvider : ICompletionProvider
 
         if (!config.IsLocal && string.IsNullOrWhiteSpace(config.ApiKey))
         {
-            response.ErrorMessage = "Provider API key is not configured.";
-            _logger.Warning($"Provider skipped due to missing api key. ProviderName={ProviderName}, ModelName={request.ModelName}, RequestId={request.RequestId}, Source={request.Source}, CompletionMode={request.CompletionMode}");
+            response.ErrorMessage = "API key is not configured for the selected provider.";
+            _logger.Warning($"Provider skipped. Reason=MissingApiKey, ProviderName={ProviderName}, RequestId={request.RequestId}, Source={request.Source}, CompletionMode={request.CompletionMode}");
             return response;
         }
 

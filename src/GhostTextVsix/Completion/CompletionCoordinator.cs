@@ -99,9 +99,8 @@ internal sealed class CompletionCoordinator
         }
 
         var providerConfig = _settingsManager.GetAutoProviderConfig();
-        if (!providerConfig.IsLocal && string.IsNullOrWhiteSpace(providerConfig.ApiKey))
+        if (ShouldSkipProvider(providerConfig, CompletionMode.Auto, requestId, "Api"))
         {
-            _logger.Warning($"Provider skipped due to missing api key. ProviderName={providerConfig.ProviderName}, ModelName={providerConfig.ModelName}, RequestId={requestId}, Source=Api, CompletionMode=Auto");
             return;
         }
 
@@ -166,6 +165,16 @@ internal sealed class CompletionCoordinator
         var options = _settingsManager.GetOptions();
         var requestOptions = CreateRequestOptions(options, isAutoCompletion);
         var started = DateTimeOffset.UtcNow;
+        if (ShouldSkipProvider(
+            requestOptions.ProviderConfig,
+            isAutoCompletion ? CompletionMode.Auto : CompletionMode.Manual,
+            requestId,
+            requestOptions.Source))
+        {
+            SetState(CompletionState.Idle);
+            return;
+        }
+
         if (!_contextCollector.TryCollect(view, requestOptions.MaxPrefixLines, requestOptions.MaxSuffixLines, out var context))
         {
             _logger.Warning($"{(isAutoCompletion ? "Auto completion" : "Completion")} skipped. RequestId={requestId}, Reason=ContextCollectionFailed, State={State}");
@@ -352,6 +361,35 @@ internal sealed class CompletionCoordinator
     private static double ElapsedMs(DateTimeOffset started)
     {
         return (DateTimeOffset.UtcNow - started).TotalMilliseconds;
+    }
+
+    private bool ShouldSkipProvider(
+        CompletionProviderConfig providerConfig,
+        CompletionMode completionMode,
+        long requestId,
+        string source)
+    {
+        if (!providerConfig.IsConfigured)
+        {
+            _logger.Warning($"Provider skipped. Reason=ProviderNotConfigured, RequestId={requestId}, Source={source}, CompletionMode={completionMode}");
+            _logger.Warning("Provider is not configured. Open re:code settings and select a provider.");
+            return true;
+        }
+
+        if (!providerConfig.IsImplemented)
+        {
+            _logger.Warning($"Provider skipped. Reason=ProviderNotSupported, ProviderName={providerConfig.ProviderName}, RequestId={requestId}, Source={source}, CompletionMode={completionMode}");
+            return true;
+        }
+
+        if (providerConfig.RequiresApiKey && string.IsNullOrWhiteSpace(providerConfig.ApiKey))
+        {
+            _logger.Warning($"Provider skipped. Reason=MissingApiKey, ProviderName={providerConfig.ProviderName}, CompletionMode={completionMode}, RequestId={requestId}, Source={source}");
+            _logger.Warning("API key is not configured for the selected provider.");
+            return true;
+        }
+
+        return false;
     }
 
     private sealed class CompletionExecutionOptions

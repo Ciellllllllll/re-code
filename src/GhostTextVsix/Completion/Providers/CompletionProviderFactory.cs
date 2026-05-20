@@ -21,11 +21,8 @@ internal sealed class CompletionProviderFactory
                 return new DeepSeekCompletionProvider(config, _logger);
             case CompletionProviderType.OpenRouter:
                 return new OpenRouterCompletionProvider(config, _logger);
-            case CompletionProviderType.LocalOpenAICompatible:
-                return new LocalOpenAICompatibleCompletionProvider(config, _logger);
-            case CompletionProviderType.OpenAICompatible:
             default:
-                return new OpenAICompatibleCompletionProvider(config, _logger);
+                return new UnsupportedCompletionProvider(config);
         }
     }
 }

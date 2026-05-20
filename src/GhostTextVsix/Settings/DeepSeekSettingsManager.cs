@@ -6,6 +6,7 @@ namespace GhostTextVsix.Settings;
 internal sealed class DeepSeekSettingsManager
 {
     private readonly DeepSeekCompletionPackage _package;
+    private bool _legacyApiKeyMigrationAttempted;
 
     public DeepSeekSettingsManager(DeepSeekCompletionPackage package)
     {
@@ -14,21 +15,10 @@ internal sealed class DeepSeekSettingsManager
 
     public DeepSeekOptionsPage GetOptions()
     {
-        return (DeepSeekOptionsPage)_package.GetDialogPage(typeof(DeepSeekOptionsPage));
+        var options = (DeepSeekOptionsPage)_package.GetDialogPage(typeof(DeepSeekOptionsPage));
+        MigrateLegacyApiKeys(options);
+        return options;
     }
-
-    public string GetApiKey()
-    {
-        var options = GetOptions();
-        if (!string.IsNullOrWhiteSpace(options.ApiKey))
-        {
-            return options.ApiKey.Trim();
-        }
-
-        return (Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY") ?? string.Empty).Trim();
-    }
-
-    public string GetEndpoint() => GetOptions().Endpoint?.Trim() ?? string.Empty;
 
     public TimeSpan GetTimeout() => TimeSpan.FromSeconds(Math.Max(5, GetOptions().TimeoutSeconds));
 
@@ -59,7 +49,6 @@ internal sealed class DeepSeekSettingsManager
         return BuildProviderConfig(
             providerType,
             options.AutoCompletionModel,
-            options.AutoCompletionBaseUrl,
             options.AutoCompletionApiKey,
             GetAutoMaxTokens(),
             GetAutoTemperature(),
@@ -73,7 +62,6 @@ internal sealed class DeepSeekSettingsManager
         return BuildProviderConfig(
             providerType,
             options.ManualCompletionModel,
-            options.ManualCompletionBaseUrl,
             options.ManualCompletionApiKey,
             GetManualMaxTokens(),
             GetManualTemperature(),
@@ -90,49 +78,29 @@ internal sealed class DeepSeekSettingsManager
     private CompletionProviderConfig BuildProviderConfig(
         CompletionProviderType providerType,
         string modelName,
-        string baseUrl,
         string apiKey,
         int maxTokens,
         double temperature,
         TimeSpan timeout)
     {
-        var providerName = GetProviderName(providerType);
+        var definition = ProviderRegistry.Get(providerType);
         return new CompletionProviderConfig
         {
             ProviderType = providerType,
-            ProviderName = providerName,
-            BaseUrl = ResolveBaseUrl(providerType, baseUrl),
+            ProviderName = definition.DisplayName,
+            BaseUrl = definition.RequestUrl,
             ApiKey = ResolveApiKey(providerType, apiKey),
-            ModelName = ResolveModelName(providerType, modelName),
+            ModelName = ResolveModelName(definition, modelName),
             MaxTokens = maxTokens,
             Temperature = temperature,
             Timeout = timeout,
-            IsLocal = providerType == CompletionProviderType.LocalOpenAICompatible,
-            SupportsChatCompletions = true,
-            SupportsFimCompletions = false,
+            IsLocal = definition.IsLocal,
+            RequiresApiKey = definition.RequiresApiKey,
+            IsImplemented = definition.IsImplemented,
+            SupportsChatCompletions = definition.SupportsChatCompletions,
+            SupportsFimCompletions = definition.SupportsFimCompletions,
             SupportsStreaming = false
         };
-    }
-
-    private string ResolveBaseUrl(CompletionProviderType providerType, string configuredBaseUrl)
-    {
-        if (!string.IsNullOrWhiteSpace(configuredBaseUrl))
-        {
-            return configuredBaseUrl.Trim();
-        }
-
-        switch (providerType)
-        {
-            case CompletionProviderType.DeepSeek:
-                return GetEndpoint();
-            case CompletionProviderType.OpenRouter:
-                return "https://openrouter.ai/api/v1/chat/completions";
-            case CompletionProviderType.LocalOpenAICompatible:
-                return GetOptions().LocalBaseUrl?.Trim() ?? string.Empty;
-            case CompletionProviderType.OpenAICompatible:
-            default:
-                return string.Empty;
-        }
     }
 
     private string ResolveApiKey(CompletionProviderType providerType, string configuredApiKey)
@@ -142,24 +110,13 @@ internal sealed class DeepSeekSettingsManager
             return configuredApiKey.Trim();
         }
 
-        var options = GetOptions();
         switch (providerType)
         {
             case CompletionProviderType.DeepSeek:
-                return GetApiKey();
+                return (Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY") ?? string.Empty).Trim();
             case CompletionProviderType.OpenRouter:
-                if (!string.IsNullOrWhiteSpace(options.OpenRouterApiKey))
-                {
-                    return options.OpenRouterApiKey.Trim();
-                }
-
                 return (Environment.GetEnvironmentVariable("OPENROUTER_API_KEY") ?? string.Empty).Trim();
             case CompletionProviderType.OpenAICompatible:
-                if (!string.IsNullOrWhiteSpace(options.OpenAICompatibleApiKey))
-                {
-                    return options.OpenAICompatibleApiKey.Trim();
-                }
-
                 return (Environment.GetEnvironmentVariable("OPENAI_COMPATIBLE_API_KEY") ?? string.Empty).Trim();
             case CompletionProviderType.LocalOpenAICompatible:
             default:
@@ -167,30 +124,63 @@ internal sealed class DeepSeekSettingsManager
         }
     }
 
-    private static string ResolveModelName(CompletionProviderType providerType, string configuredModel)
+    private static string ResolveModelName(ProviderDefinition definition, string configuredModel)
     {
         if (!string.IsNullOrWhiteSpace(configuredModel))
         {
             return configuredModel.Trim();
         }
 
-        return providerType == CompletionProviderType.DeepSeek ? "deepseek-v4-flash" : string.Empty;
+        return definition.DefaultModelName;
     }
 
-    private static string GetProviderName(CompletionProviderType providerType)
+    private void MigrateLegacyApiKeys(DeepSeekOptionsPage options)
     {
-        switch (providerType)
+        if (_legacyApiKeyMigrationAttempted)
         {
-            case CompletionProviderType.DeepSeek:
-                return "DeepSeek";
-            case CompletionProviderType.OpenRouter:
-                return "OpenRouter";
-            case CompletionProviderType.LocalOpenAICompatible:
-                return "LocalOpenAICompatible";
-            case CompletionProviderType.OpenAICompatible:
-            default:
-                return "OpenAICompatible";
+            return;
         }
+
+        _legacyApiKeyMigrationAttempted = true;
+        var legacyApiKey = FirstConfiguredKey(
+            options.ApiKey,
+            options.OpenRouterApiKey,
+            options.OpenAICompatibleApiKey);
+        if (string.IsNullOrWhiteSpace(legacyApiKey))
+        {
+            return;
+        }
+
+        var changed = false;
+        if (string.IsNullOrWhiteSpace(options.AutoCompletionApiKey))
+        {
+            options.AutoCompletionApiKey = legacyApiKey;
+            changed = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(options.ManualCompletionApiKey))
+        {
+            options.ManualCompletionApiKey = legacyApiKey;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            options.SaveSettingsToStorage();
+        }
+    }
+
+    private static string FirstConfiguredKey(params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                return key.Trim();
+            }
+        }
+
+        return string.Empty;
     }
 
     private static double ClampTemperature(double temperature)
