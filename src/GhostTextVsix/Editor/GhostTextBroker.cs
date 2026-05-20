@@ -3,6 +3,9 @@ using System.Collections.Concurrent;
 using System.Linq;
 using GhostTextVsix.Completion;
 using GhostTextVsix.Diagnostics;
+using Microsoft.VisualStudio.Language.Intellisense;
+using Microsoft.VisualStudio.Language.Intellisense.AsyncCompletion;
+using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text.Editor;
 
 namespace GhostTextVsix.Editor;
@@ -33,9 +36,14 @@ internal static class GhostTextBroker
         return Sessions.TryGetValue(view, out session);
     }
 
+    public static bool TryGetActiveSession(IWpfTextView view, out GhostTextSession session)
+    {
+        return Sessions.TryGetValue(view, out session) && session.HasSuggestion;
+    }
+
     public static bool IsActive(IWpfTextView view)
     {
-        return TryGetExisting(view, out var session) && session.HasSuggestion;
+        return TryGetActiveSession(view, out _);
     }
 
     public static void LogInfo(string message)
@@ -101,8 +109,43 @@ internal static class GhostTextBroker
         var session = GetOrCreate(view);
         session.Show(view, text, requestId, source, _logger);
         _coordinator.SetState(CompletionState.ShowingGhostText);
+        _logger?.Info($"GhostText active session view registered. RequestId={requestId}, Source={source}, ViewId={GetViewId(view)}");
         _commitHandler?.LogSessionActivated(session);
         return true;
+    }
+
+    public static bool AcceptActiveGhostTextFromTab(
+        IWpfTextView view,
+        string source,
+        ICompletionBroker legacyCompletionBroker,
+        IAsyncCompletionBroker asyncCompletionBroker)
+    {
+        try
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var viewId = GetViewId(view);
+            var hasActiveSessionForView = TryGetActiveSession(view, out _);
+            var hasAnyActiveSession = Sessions.Any(static entry => entry.Value.HasSuggestion);
+            var textViewMatchesActiveSession = hasActiveSessionForView || !hasAnyActiveSession;
+            var asyncCompletionActive = IsAsyncCompletionActive(view, asyncCompletionBroker);
+            var legacyCompletionActive = IsLegacyCompletionActive(view, legacyCompletionBroker);
+
+            _logger?.Info($"GhostText accept started from {source}. ViewId={viewId}, GhostText active on Tab={hasActiveSessionForView}, Tab textView matches active session={textViewMatchesActiveSession}, AsyncCompletion active={asyncCompletionActive}, LegacyCompletion active={legacyCompletionActive}");
+            if (!hasActiveSessionForView)
+            {
+                _logger?.Info($"Tab ignored because GhostText inactive. Source={source}, ViewId={viewId}");
+                return false;
+            }
+
+            DismissAsyncCompletionForGhostTextAccept(view, asyncCompletionBroker);
+            DismissLegacyCompletionForGhostTextAccept(view, legacyCompletionBroker);
+            return Accept(view);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error($"GhostText accept from Tab failed. Source={source}, ViewId={GetViewId(view)}, Error={ex.GetType().Name}");
+            return false;
+        }
     }
 
     public static bool Accept(IWpfTextView view)
@@ -123,5 +166,77 @@ internal static class GhostTextBroker
     public static void CancelAutoCompletion(string reason)
     {
         _coordinator?.CancelAutoCompletion(reason);
+    }
+
+    public static int GetViewId(IWpfTextView view)
+    {
+        return view?.GetHashCode() ?? 0;
+    }
+
+    private static bool IsAsyncCompletionActive(IWpfTextView view, IAsyncCompletionBroker asyncCompletionBroker)
+    {
+        try
+        {
+            return asyncCompletionBroker != null && asyncCompletionBroker.IsCompletionActive(view);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning($"AsyncCompletion active check failed. ViewId={GetViewId(view)}, Error={ex.GetType().Name}");
+            return false;
+        }
+    }
+
+    private static bool IsLegacyCompletionActive(IWpfTextView view, ICompletionBroker legacyCompletionBroker)
+    {
+        try
+        {
+            return legacyCompletionBroker != null && legacyCompletionBroker.IsCompletionActive(view);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning($"Legacy completion active check failed. ViewId={GetViewId(view)}, Error={ex.GetType().Name}");
+            return false;
+        }
+    }
+
+    private static void DismissAsyncCompletionForGhostTextAccept(IWpfTextView view, IAsyncCompletionBroker asyncCompletionBroker)
+    {
+        try
+        {
+            var session = asyncCompletionBroker?.GetSession(view);
+            if (session == null)
+            {
+                return;
+            }
+
+            session.Dismiss();
+            _logger?.Info($"AsyncCompletion session dismissed for GhostText accept. ViewId={GetViewId(view)}");
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning($"AsyncCompletion session dismiss failed for GhostText accept. ViewId={GetViewId(view)}, Error={ex.GetType().Name}");
+        }
+    }
+
+    private static void DismissLegacyCompletionForGhostTextAccept(IWpfTextView view, ICompletionBroker legacyCompletionBroker)
+    {
+        try
+        {
+            if (legacyCompletionBroker == null || !legacyCompletionBroker.IsCompletionActive(view))
+            {
+                return;
+            }
+
+            foreach (var session in legacyCompletionBroker.GetSessions(view))
+            {
+                session.Dismiss();
+            }
+
+            _logger?.Info($"Legacy completion session dismissed for GhostText accept. ViewId={GetViewId(view)}");
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning($"Legacy completion session dismiss failed for GhostText accept. ViewId={GetViewId(view)}, Error={ex.GetType().Name}");
+        }
     }
 }

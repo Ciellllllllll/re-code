@@ -2,6 +2,7 @@ using System.ComponentModel.Composition;
 using GhostTextVsix.Diagnostics;
 using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.Language.Intellisense;
+using Microsoft.VisualStudio.Language.Intellisense.AsyncCompletion;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Utilities;
 
@@ -21,6 +22,9 @@ internal sealed class GhostTextViewCreationListener : IWpfTextViewCreationListen
     [Import]
     internal ICompletionBroker CompletionBroker { get; set; }
 
+    [Import(AllowDefault = true)]
+    internal IAsyncCompletionBroker AsyncCompletionBroker { get; set; }
+
     [Export(typeof(AdornmentLayerDefinition))]
     [Name(LayerName)]
     [Order(After = PredefinedAdornmentLayers.Text)]
@@ -28,7 +32,7 @@ internal sealed class GhostTextViewCreationListener : IWpfTextViewCreationListen
 
     public void TextViewCreated(IWpfTextView textView)
     {
-        var commandFilter = new GhostTextCommandFilter(textView, EditorAdaptersFactoryService, CompletionBroker);
+        var commandFilter = new GhostTextCommandFilter(textView, EditorAdaptersFactoryService, CompletionBroker, AsyncCompletionBroker);
         commandFilter.Attach();
 
         textView.LayoutChanged += (_, _) =>

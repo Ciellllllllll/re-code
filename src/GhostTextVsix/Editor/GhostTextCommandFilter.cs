@@ -3,6 +3,7 @@ using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.Language.Intellisense;
+using Microsoft.VisualStudio.Language.Intellisense.AsyncCompletion;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.TextManager.Interop;
 
@@ -13,17 +14,20 @@ internal sealed class GhostTextCommandFilter : IOleCommandTarget
     private readonly IWpfTextView _view;
     private readonly IVsEditorAdaptersFactoryService _editorAdaptersFactoryService;
     private readonly ICompletionBroker _completionBroker;
+    private readonly IAsyncCompletionBroker _asyncCompletionBroker;
     private readonly CppDocumentDetector _detector = new();
     private IOleCommandTarget _next;
 
     public GhostTextCommandFilter(
         IWpfTextView view,
         IVsEditorAdaptersFactoryService editorAdaptersFactoryService,
-        ICompletionBroker completionBroker)
+        ICompletionBroker completionBroker,
+        IAsyncCompletionBroker asyncCompletionBroker)
     {
         _view = view;
         _editorAdaptersFactoryService = editorAdaptersFactoryService;
         _completionBroker = completionBroker;
+        _asyncCompletionBroker = asyncCompletionBroker;
     }
 
     public void Attach()
@@ -57,20 +61,19 @@ internal sealed class GhostTextCommandFilter : IOleCommandTarget
         if (IsTabCommand(pguidCmdGroup, nCmdID))
         {
             var ghostTextActive = GhostTextBroker.IsActive(_view);
-            var intelliSenseActive = IsIntelliSenseSessionActive();
-            GhostTextBroker.LogInfo($"Tab command received. CommandGroup={pguidCmdGroup}, CommandId={nCmdID}, CommandName={commandName}, GhostText active on Tab={ghostTextActive}, IntelliSense session active={intelliSenseActive}");
+            var legacyCompletionActive = IsLegacyCompletionSessionActive();
+            var asyncCompletionActive = IsAsyncCompletionSessionActive();
+            GhostTextBroker.LogInfo($"Tab command received. CommandGroup={pguidCmdGroup}, CommandId={nCmdID}, CommandName={commandName}, ViewId={GhostTextBroker.GetViewId(_view)}, GhostText active on Tab={ghostTextActive}, AsyncCompletion active={asyncCompletionActive}, LegacyCompletion active={legacyCompletionActive}");
 
             if (ghostTextActive)
             {
-                GhostTextBroker.LogInfo($"GhostText accept started. IntelliSense session active={intelliSenseActive}");
-                DismissIntelliSenseSessionsForGhostTextAccept();
-                if (GhostTextBroker.Accept(_view))
+                if (GhostTextBroker.AcceptActiveGhostTextFromTab(_view, "CommandFilter", _completionBroker, _asyncCompletionBroker))
                 {
                     return VSConstants.S_OK;
                 }
             }
 
-            GhostTextBroker.LogInfo($"Tab passed to next command target. CommandGroup={pguidCmdGroup}, CommandId={nCmdID}, CommandName={commandName}, GhostText active on Tab={ghostTextActive}, IntelliSense session active={intelliSenseActive}");
+            GhostTextBroker.LogInfo($"Tab passed to next command target. CommandGroup={pguidCmdGroup}, CommandId={nCmdID}, CommandName={commandName}, ViewId={GhostTextBroker.GetViewId(_view)}, GhostText active on Tab={ghostTextActive}, AsyncCompletion active={asyncCompletionActive}, LegacyCompletion active={legacyCompletionActive}");
             return _next?.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut) ?? VSConstants.S_OK;
         }
 
@@ -113,24 +116,14 @@ internal sealed class GhostTextCommandFilter : IOleCommandTarget
         return result;
     }
 
-    private bool IsIntelliSenseSessionActive()
+    private bool IsLegacyCompletionSessionActive()
     {
         return _completionBroker != null && _completionBroker.IsCompletionActive(_view);
     }
 
-    private void DismissIntelliSenseSessionsForGhostTextAccept()
+    private bool IsAsyncCompletionSessionActive()
     {
-        if (_completionBroker == null || !_completionBroker.IsCompletionActive(_view))
-        {
-            return;
-        }
-
-        foreach (var session in _completionBroker.GetSessions(_view))
-        {
-            session.Dismiss();
-        }
-
-        GhostTextBroker.LogInfo("IntelliSense session dismissed for GhostText accept.");
+        return _asyncCompletionBroker != null && _asyncCompletionBroker.IsCompletionActive(_view);
     }
 
     private static bool IsTabCommand(Guid commandGroup, uint commandId)
