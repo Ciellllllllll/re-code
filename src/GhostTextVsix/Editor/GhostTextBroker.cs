@@ -77,4 +77,14 @@ internal static class GhostTextBroker
     {
         return _commitHandler != null && _commitHandler.TryDismiss(view, reason);
     }
+
+    public static void ScheduleAutoCompletion(IWpfTextView view)
+    {
+        _coordinator?.ScheduleAutoCompletion(view);
+    }
+
+    public static void CancelAutoCompletion(string reason)
+    {
+        _coordinator?.CancelAutoCompletion(reason);
+    }
 }

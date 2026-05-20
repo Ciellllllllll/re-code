@@ -22,8 +22,18 @@ public sealed class DeepSeekOptionsPage : DialogPage
 
     [Category("Completion")]
     [DisplayName("Enable Auto Completion")]
-    [Description("Reserved for future debounce-based automatic completion.")]
-    public bool EnableAutoCompletion { get; set; }
+    [Description("Automatically request a completion after typing stops in supported C/C++ files.")]
+    public bool EnableAutoCompletion { get; set; } = true;
+
+    [Category("Completion")]
+    [DisplayName("Debounce Time Milliseconds")]
+    [Description("Delay after the last typed character before automatic completion starts.")]
+    public int DebounceMilliseconds { get; set; } = 500;
+
+    [Category("Completion")]
+    [DisplayName("Cache TTL Seconds")]
+    [Description("How long formatted completions are reused for the same editor context.")]
+    public int CacheTtlSeconds { get; set; } = 30;
 
     [Category("Completion")]
     [DisplayName("Max Prefix Lines")]

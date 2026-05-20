@@ -33,6 +33,10 @@ internal sealed class DeepSeekSettingsManager
 
     public bool IsAutoCompletionEnabled() => GetOptions().EnableAutoCompletion;
 
+    public TimeSpan GetDebounceTime() => TimeSpan.FromMilliseconds(Math.Max(100, GetOptions().DebounceMilliseconds));
+
+    public TimeSpan GetCacheTtl() => TimeSpan.FromSeconds(Math.Max(1, GetOptions().CacheTtlSeconds));
+
     public void SetAutoCompletionEnabled(bool enabled)
     {
         var options = GetOptions();

@@ -25,6 +25,7 @@ internal sealed class CompletionCommitHandler
 
         session.Accept(view);
         _coordinator.SetState(CompletionState.Accepted);
+        _coordinator.SetState(CompletionState.Idle);
         _logger.Info("GhostText accepted.");
         return true;
     }
@@ -39,6 +40,7 @@ internal sealed class CompletionCommitHandler
 
         session.Dismiss();
         _coordinator.SetState(CompletionState.Dismissed);
+        _coordinator.SetState(CompletionState.Idle);
         _logger.Info($"GhostText dismissed. Reason={reason}");
         return true;
     }

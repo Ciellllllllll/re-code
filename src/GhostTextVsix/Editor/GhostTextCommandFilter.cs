@@ -41,6 +41,7 @@ internal sealed class GhostTextCommandFilter : IOleCommandTarget
             return _next?.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut) ?? VSConstants.S_OK;
         }
 
+        var shouldScheduleAutoCompletion = false;
         if (pguidCmdGroup == VSConstants.VSStd2K)
         {
             if (nCmdID == (uint)VSConstants.VSStd2KCmdID.TAB && GhostTextBroker.Accept(_view))
@@ -56,6 +57,10 @@ internal sealed class GhostTextCommandFilter : IOleCommandTarget
             switch ((VSConstants.VSStd2KCmdID)nCmdID)
             {
                 case VSConstants.VSStd2KCmdID.TYPECHAR:
+                    GhostTextBroker.Dismiss(_view, $"Command:{(VSConstants.VSStd2KCmdID)nCmdID}");
+                    GhostTextBroker.CancelAutoCompletion("TypeChar");
+                    shouldScheduleAutoCompletion = true;
+                    break;
                 case VSConstants.VSStd2KCmdID.BACKSPACE:
                 case VSConstants.VSStd2KCmdID.DELETE:
                 case VSConstants.VSStd2KCmdID.LEFT:
@@ -67,10 +72,17 @@ internal sealed class GhostTextCommandFilter : IOleCommandTarget
                 case VSConstants.VSStd2KCmdID.PAGEUP:
                 case VSConstants.VSStd2KCmdID.PAGEDN:
                     GhostTextBroker.Dismiss(_view, $"Command:{(VSConstants.VSStd2KCmdID)nCmdID}");
+                    GhostTextBroker.CancelAutoCompletion($"Command:{(VSConstants.VSStd2KCmdID)nCmdID}");
                     break;
             }
         }
 
-        return _next?.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut) ?? VSConstants.S_OK;
+        var result = _next?.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut) ?? VSConstants.S_OK;
+        if (shouldScheduleAutoCompletion && ErrorHandler.Succeeded(result))
+        {
+            GhostTextBroker.ScheduleAutoCompletion(_view);
+        }
+
+        return result;
     }
 }
