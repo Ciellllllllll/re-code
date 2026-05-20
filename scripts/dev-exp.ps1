@@ -17,7 +17,57 @@ $extensionId = "GhostTextVsix.0fd3a8ea-948f-4c4c-97b0-3bba43fc8630"
 
 Write-Host "== GhostText VSIX Experimental deploy ==" -ForegroundColor Cyan
 
+function Get-ExperimentalDevenvProcess {
+    Get-CimInstance Win32_Process -Filter "Name = 'devenv.exe'" |
+        Where-Object {
+            $_.CommandLine -match '(?i)(/rootsuffix\s+Exp|/rootSuffix:Exp)'
+        }
+}
+
+function Close-ExperimentalInstance {
+    $processes = @(Get-ExperimentalDevenvProcess)
+    if ($processes.Count -eq 0) {
+        Write-Host "No running Experimental Instance found." -ForegroundColor DarkGray
+        return
+    }
+
+    Write-Host "Closing running Experimental Instance..." -ForegroundColor Yellow
+    foreach ($process in $processes) {
+        Write-Host "Stopping devenv.exe PID=$($process.ProcessId) CommandLine=$($process.CommandLine)" -ForegroundColor DarkYellow
+        Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+
+    Start-Sleep -Seconds 2
+}
+
+function Invoke-ExperimentalDevenv {
+    param(
+        [string]$Action,
+        [string[]]$Arguments
+    )
+
+    Write-Host $Action -ForegroundColor Yellow
+    & $devenv @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Action failed. ExitCode=$LASTEXITCODE"
+    }
+}
+
+function Reset-SkippedPackages {
+    param(
+        [string]$Phase
+    )
+
+    Write-Host "Resetting skipped packages $Phase..." -ForegroundColor Yellow
+    Invoke-ExperimentalDevenv "Running devenv /ResetSkipPkgs $Phase" @("/rootsuffix", "Exp", "/ResetSkipPkgs")
+
+    Write-Host "Updating Experimental Instance configuration $Phase..." -ForegroundColor Yellow
+    Invoke-ExperimentalDevenv "Running devenv /updateconfiguration $Phase" @("/rootsuffix", "Exp", "/updateconfiguration")
+}
+
 Set-Location $root
+
+Close-ExperimentalInstance
 
 Write-Host "Cleaning old build outputs..." -ForegroundColor Yellow
 Remove-Item "$root\src\GhostTextVsix\bin" -Recurse -Force -ErrorAction SilentlyContinue
@@ -47,6 +97,8 @@ Get-Item $pkgdef | Select-Object FullName, Length, LastWriteTime
 Write-Host "Generated VSIX:" -ForegroundColor Green
 Get-Item $vsix | Select-Object FullName, Length, LastWriteTime
 
+Reset-SkippedPackages "before install"
+
 Write-Host "Uninstalling old extension from Experimental Instance..." -ForegroundColor Yellow
 & $vsixInstaller /quiet /rootSuffix:Exp /u:$extensionId
 
@@ -61,8 +113,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "VSIX install failed. ExitCode=$LASTEXITCODE"
 }
 
-Write-Host "Updating Experimental Instance configuration..." -ForegroundColor Yellow
-& $devenv /rootsuffix Exp /updateconfiguration
+Reset-SkippedPackages "after install"
 
 Write-Host "Done." -ForegroundColor Green
 
