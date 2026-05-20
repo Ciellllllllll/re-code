@@ -42,6 +42,7 @@ internal sealed class EditorContextCollector
         var prefix = snapshot.GetText(prefixStart, caretPosition - prefixStart);
         var suffix = snapshot.GetText(caretPosition, suffixEnd - caretPosition);
         var currentLineText = line.GetText();
+        var currentLinePrefix = snapshot.GetText(line.Start.Position, caretPosition - line.Start.Position);
         var indent = new string(currentLineText.TakeWhile(char.IsWhiteSpace).ToArray());
 
         context = new EditorContext
@@ -50,6 +51,7 @@ internal sealed class EditorContextCollector
             CaretPosition = caretPosition,
             Prefix = _securityFilter.MaskSecrets(prefix),
             Suffix = _securityFilter.MaskSecrets(suffix),
+            CurrentLinePrefix = _securityFilter.MaskSecrets(currentLinePrefix),
             CurrentLineIndent = indent
         };
 

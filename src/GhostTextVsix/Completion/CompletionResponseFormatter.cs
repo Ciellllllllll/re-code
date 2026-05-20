@@ -19,10 +19,11 @@ internal sealed class CompletionResponseFormatter
             return string.Empty;
         }
 
-        var text = raw.Replace("\r\n", "\n").Trim();
+        var text = TrimBlankLines(raw.Replace("\r\n", "\n"));
         text = RemoveCodeFences(text);
         text = RemoveLeadingExplanation(text);
-        text = RemovePrefixOverlap(context.Prefix, text);
+        text = RemoveAlreadyTypedPrefix(context.CurrentLinePrefix, text);
+        text = RemoveAlreadyTypedPrefix(context.Prefix, text);
         text = ApplyIndentation(context.CurrentLineIndent, text);
         text = TrimLength(text);
 
@@ -38,7 +39,7 @@ internal sealed class CompletionResponseFormatter
     {
         var lines = text.Split('\n');
         var filtered = lines.Where(line => !FenceLineRegex.IsMatch(line));
-        return string.Join("\n", filtered).Trim();
+        return TrimBlankLines(string.Join("\n", filtered));
     }
 
     private static string RemoveLeadingExplanation(string text)
@@ -67,14 +68,26 @@ internal sealed class CompletionResponseFormatter
             break;
         }
 
-        return string.Join("\n", lines).Trim();
+        return TrimBlankLines(string.Join("\n", lines));
     }
 
-    private static string RemovePrefixOverlap(string prefix, string completion)
+    private static string RemoveAlreadyTypedPrefix(string prefix, string completion)
     {
         if (string.IsNullOrEmpty(prefix) || string.IsNullOrEmpty(completion))
         {
             return completion;
+        }
+
+        var linePrefix = GetLastLine(prefix);
+        if (!string.IsNullOrEmpty(linePrefix) && completion.StartsWith(linePrefix, StringComparison.Ordinal))
+        {
+            return completion.Substring(linePrefix.Length);
+        }
+
+        var trimmedLinePrefix = linePrefix.TrimStart();
+        if (!string.IsNullOrEmpty(trimmedLinePrefix) && completion.StartsWith(trimmedLinePrefix, StringComparison.Ordinal))
+        {
+            return completion.Substring(trimmedLinePrefix.Length);
         }
 
         var max = Math.Min(prefix.Length, completion.Length);
@@ -87,6 +100,29 @@ internal sealed class CompletionResponseFormatter
         }
 
         return completion;
+    }
+
+    private static string GetLastLine(string text)
+    {
+        var normalized = text.Replace("\r\n", "\n");
+        var index = normalized.LastIndexOf('\n');
+        return index < 0 ? normalized : normalized.Substring(index + 1);
+    }
+
+    private static string TrimBlankLines(string text)
+    {
+        var lines = text.Split('\n').ToList();
+        while (lines.Count > 0 && string.IsNullOrWhiteSpace(lines[0]))
+        {
+            lines.RemoveAt(0);
+        }
+
+        while (lines.Count > 0 && string.IsNullOrWhiteSpace(lines[lines.Count - 1]))
+        {
+            lines.RemoveAt(lines.Count - 1);
+        }
+
+        return string.Join("\n", lines);
     }
 
     private static string ApplyIndentation(string indent, string text)

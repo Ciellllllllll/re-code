@@ -21,7 +21,11 @@ internal sealed class PromptBuilder
     {
         var builder = new StringBuilder();
         builder.AppendLine("Complete the code at <cursor>.");
+        builder.AppendLine("Return only the missing text after the current line prefix.");
+        builder.AppendLine("Do not repeat the current line prefix.");
         builder.AppendLine($"File: {context.FilePath}");
+        builder.AppendLine("Current line prefix already typed by the user:");
+        builder.AppendLine(context.CurrentLinePrefix);
         builder.AppendLine("Prefix:");
         builder.AppendLine(context.Prefix);
         builder.AppendLine("<cursor>");
