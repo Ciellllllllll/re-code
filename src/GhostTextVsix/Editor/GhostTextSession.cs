@@ -1,6 +1,8 @@
 using System;
+using System.Threading;
 using System.Windows.Controls;
 using System.Windows.Media;
+using GhostTextVsix.Completion;
 using GhostTextVsix.Diagnostics;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
@@ -11,23 +13,60 @@ namespace GhostTextVsix.Editor;
 internal sealed class GhostTextSession
 {
     private string _text = string.Empty;
+    private NormalizedCompletion _completion;
     private SnapshotPoint? _anchorPoint;
+    private ITrackingPoint _trackingPoint;
     private IAdornmentLayer _layer;
     private DeepSeekOutputLogger _logger;
     private SelectionSnapshot _selectionSnapshot;
 
     public bool HasSuggestion => !string.IsNullOrEmpty(_text) && _anchorPoint.HasValue;
+    public NormalizedCompletion Completion => _completion;
+    public bool IsAccepting => _accepting != 0;
+    public bool IsAccepted { get; private set; }
+    public bool IsDismissed { get; private set; } = true;
     public long RequestId { get; private set; }
     public string Source { get; private set; } = string.Empty;
+    private int _accepting;
 
     public void Show(IWpfTextView view, string text, long requestId, string source, DeepSeekOutputLogger logger)
     {
-        _text = text;
+        var completion = new NormalizedCompletion
+        {
+            DisplayText = text,
+            CommitText = text,
+            CommitPlan = new CompletionCommitPlan
+            {
+                CommitSpanStart = view.Caret.Position.BufferPosition.Position,
+                CommitSpanLength = 0,
+                CommitText = text,
+                UsesTrackingPoint = true,
+                ExpectedSnapshotVersion = view.TextSnapshot.Version.VersionNumber
+            },
+            CommitSpanStart = view.Caret.Position.BufferPosition.Position,
+            CommitSpanLength = 0,
+            ExpectedSnapshotVersion = view.TextSnapshot.Version.VersionNumber,
+            RequestId = requestId,
+            Source = source
+        };
+        Show(view, completion, requestId, source, logger);
+    }
+
+    public void Show(IWpfTextView view, NormalizedCompletion completion, long requestId, string source, DeepSeekOutputLogger logger)
+    {
+        _completion = completion;
+        _text = completion?.DisplayText ?? string.Empty;
         _anchorPoint = view.Caret.Position.BufferPosition;
+        _trackingPoint = view.TextSnapshot.CreateTrackingPoint(
+            completion?.CommitPlan?.CommitSpanStart ?? _anchorPoint.Value.Position,
+            PointTrackingMode.Positive);
         _selectionSnapshot = SelectionSnapshot.Create(view);
         RequestId = requestId;
         Source = source;
         _logger = logger;
+        IsAccepted = false;
+        IsDismissed = false;
+        _accepting = 0;
         try
         {
             _layer = view.GetAdornmentLayer(GhostTextViewCreationListener.LayerName);
@@ -215,6 +254,18 @@ internal sealed class GhostTextSession
             addAdornmentSucceeded);
     }
 
+    public bool TryBeginAccept()
+    {
+        return !IsAccepted &&
+               !IsDismissed &&
+               Interlocked.CompareExchange(ref _accepting, 1, 0) == 0;
+    }
+
+    public void EndAccept()
+    {
+        Interlocked.Exchange(ref _accepting, 0);
+    }
+
     public int Accept(IWpfTextView view)
     {
         if (!HasSuggestion || !_anchorPoint.HasValue)
@@ -234,11 +285,48 @@ internal sealed class GhostTextSession
         return insertedEnd;
     }
 
+    public int AcceptPlan(IWpfTextView view)
+    {
+        if (!HasSuggestion || _completion?.CommitPlan == null)
+        {
+            return -1;
+        }
+
+        var plan = _completion.CommitPlan;
+        var start = _trackingPoint?.GetPosition(view.TextSnapshot) ?? plan.CommitSpanStart;
+        var length = plan.CommitSpanLength;
+        if (start < 0 || start > view.TextSnapshot.Length || start + length > view.TextSnapshot.Length)
+        {
+            return -1;
+        }
+
+        var text = plan.CommitText ?? string.Empty;
+        using var edit = view.TextBuffer.CreateEdit();
+        if (length > 0)
+        {
+            edit.Replace(start, length, text);
+        }
+        else
+        {
+            edit.Insert(start, text);
+        }
+
+        edit.Apply();
+        var insertedEnd = start + text.Length;
+        view.Caret.MoveTo(new SnapshotPoint(view.TextSnapshot, insertedEnd));
+        IsAccepted = true;
+        Dismiss();
+        return insertedEnd;
+    }
+
     public void Dismiss()
     {
         _text = string.Empty;
+        _completion = null;
         _anchorPoint = null;
+        _trackingPoint = null;
         _selectionSnapshot = default;
+        IsDismissed = true;
         RequestId = 0;
         Source = string.Empty;
         _logger = null;

@@ -13,6 +13,7 @@ namespace GhostTextVsix.Editor;
 internal static class GhostTextBroker
 {
     private static readonly ConcurrentDictionary<IWpfTextView, GhostTextSession> Sessions = new();
+    private static readonly object ActiveSessionKey = new();
     private static CompletionCoordinator _coordinator;
     private static CppDocumentDetector _detector;
     private static CompletionCommitHandler _commitHandler;
@@ -38,8 +39,14 @@ internal static class GhostTextBroker
 
     public static bool TryGetActiveSession(IWpfTextView view, out GhostTextSession session)
     {
+        if (view.Properties.TryGetProperty(ActiveSessionKey, out session) && session.HasSuggestion)
+        {
+            return true;
+        }
+
         if (Sessions.TryGetValue(view, out session) && session.HasSuggestion)
         {
+            RegisterActiveSession(view, session);
             return true;
         }
 
@@ -53,7 +60,7 @@ internal static class GhostTextBroker
             }
 
             session = entry.Value;
-            Sessions[view] = session;
+            RegisterActiveSession(view, session);
             _logger?.Warning($"GhostText active session remapped to current view. OriginalViewId={GetViewId(entry.Key)}, ViewId={GetViewId(view)}, RequestId={session.RequestId}, Source={session.Source}");
             return true;
         }
@@ -82,6 +89,21 @@ internal static class GhostTextBroker
         _logger?.Info(message);
     }
 
+    public static void LogWarning(string message)
+    {
+        _logger?.Warning(message);
+    }
+
+    public static void LogError(string message)
+    {
+        _logger?.Error(message);
+    }
+
+    public static bool IsSupportedView(IWpfTextView view)
+    {
+        return view != null && _detector != null && _detector.IsSupported(view.TextBuffer.GetFileName());
+    }
+
     public static void Remove(IWpfTextView view)
     {
         ClearActiveSession(view, "Remove");
@@ -89,18 +111,31 @@ internal static class GhostTextBroker
 
     public static void ClearActiveSession(IWpfTextView view, string reason)
     {
+        RemoveViewSessionProperty(view);
         if (Sessions.TryRemove(view, out var session))
         {
             _logger?.Info($"GhostText active session view cleared. ViewId={GetViewId(view)}, RequestId={session.RequestId}, Source={session.Source}, Reason={reason}");
+            _logger?.Info($"GhostText exclusive mode exited. ViewId={GetViewId(view)}, Reason={reason}");
         }
     }
 
     public static void ClearActiveSession(IWpfTextView view, long requestId, string source, string reason)
     {
+        RemoveViewSessionProperty(view);
         if (Sessions.TryRemove(view, out _))
         {
             _logger?.Info($"GhostText active session view cleared. ViewId={GetViewId(view)}, RequestId={requestId}, Source={source}, Reason={reason}");
+            _logger?.Info($"GhostText exclusive mode exited. ViewId={GetViewId(view)}, Reason={reason}");
         }
+    }
+
+    public static void RegisterActiveSession(IWpfTextView view, GhostTextSession session)
+    {
+        Sessions[view] = session;
+        RemoveViewSessionProperty(view);
+        view.Properties.AddProperty(ActiveSessionKey, session);
+        _logger?.Info($"GhostText active session view registered. RequestId={session.RequestId}, Source={session.Source}, ViewId={GetViewId(view)}");
+        _logger?.Info($"GhostText exclusive mode entered. ViewId={GetViewId(view)}, RequestId={session.RequestId}, Source={session.Source}");
     }
 
     public static void DismissAll(string reason)
@@ -156,7 +191,29 @@ internal static class GhostTextBroker
         var session = GetOrCreate(view);
         session.Show(view, text, requestId, source, _logger);
         _coordinator.SetState(CompletionState.ShowingGhostText);
-        _logger?.Info($"GhostText active session view registered. RequestId={requestId}, Source={source}, ViewId={GetViewId(view)}");
+        RegisterActiveSession(view, session);
+        GhostTextInputArbiter.SuppressIntelliSenseIfGhostTextActive(view, "GhostTextShown");
+        _commitHandler?.LogSessionActivated(session);
+        return true;
+    }
+
+    public static bool TryShow(IWpfTextView view, NormalizedCompletion completion, long requestId, string source)
+    {
+        if (_coordinator == null || _detector == null || completion == null)
+        {
+            return false;
+        }
+
+        if (!IsSupportedView(view))
+        {
+            return false;
+        }
+
+        var session = GetOrCreate(view);
+        session.Show(view, completion, requestId, source, _logger);
+        _coordinator.SetState(CompletionState.ShowingGhostText);
+        RegisterActiveSession(view, session);
+        GhostTextInputArbiter.SuppressIntelliSenseIfGhostTextActive(view, "GhostTextShown");
         _commitHandler?.LogSessionActivated(session);
         return true;
     }
@@ -167,33 +224,8 @@ internal static class GhostTextBroker
         ICompletionBroker legacyCompletionBroker,
         IAsyncCompletionBroker asyncCompletionBroker)
     {
-        try
-        {
-            ThreadHelper.ThrowIfNotOnUIThread();
-            var viewId = GetViewId(view);
-            var hasExactActiveSession = Sessions.TryGetValue(view, out var exactSession) && exactSession.HasSuggestion;
-            var hasActiveSessionForView = TryGetActiveSession(view, out _);
-            var hasAnyActiveSession = Sessions.Any(static entry => entry.Value.HasSuggestion);
-            var textViewMatchesActiveSession = hasExactActiveSession || !hasAnyActiveSession;
-            var asyncCompletionActive = IsAsyncCompletionActive(view, asyncCompletionBroker);
-            var legacyCompletionActive = IsLegacyCompletionActive(view, legacyCompletionBroker);
-
-            _logger?.Info($"GhostText accept started from {source}. ViewId={viewId}, GhostText active on Tab={hasActiveSessionForView}, Tab textView matches active session={textViewMatchesActiveSession}, AsyncCompletion active={asyncCompletionActive}, LegacyCompletion active={legacyCompletionActive}");
-            if (!hasActiveSessionForView)
-            {
-                _logger?.Info($"Tab ignored because GhostText inactive. Source={source}, ViewId={viewId}");
-                return false;
-            }
-
-            DismissAsyncCompletionForGhostTextAccept(view, asyncCompletionBroker);
-            DismissLegacyCompletionForGhostTextAccept(view, legacyCompletionBroker);
-            return Accept(view);
-        }
-        catch (Exception ex)
-        {
-            _logger?.Error($"GhostText accept from Tab failed. Source={source}, ViewId={GetViewId(view)}, Error={ex.GetType().Name}");
-            return false;
-        }
+        ThreadHelper.ThrowIfNotOnUIThread();
+        return GhostTextInputArbiter.TryAcceptGhostTextFromTab(view, source, legacyCompletionBroker, asyncCompletionBroker);
     }
 
     public static bool Accept(IWpfTextView view)
@@ -219,6 +251,14 @@ internal static class GhostTextBroker
     public static int GetViewId(IWpfTextView view)
     {
         return view?.GetHashCode() ?? 0;
+    }
+
+    private static void RemoveViewSessionProperty(IWpfTextView view)
+    {
+        if (view != null && view.Properties.ContainsProperty(ActiveSessionKey))
+        {
+            view.Properties.RemoveProperty(ActiveSessionKey);
+        }
     }
 
     private static bool IsAsyncCompletionActive(IWpfTextView view, IAsyncCompletionBroker asyncCompletionBroker)

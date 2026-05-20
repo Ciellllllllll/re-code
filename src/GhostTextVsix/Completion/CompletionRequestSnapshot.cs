@@ -15,6 +15,36 @@ internal sealed class CompletionRequestSnapshot
 
     public int CaretPosition { get; private set; }
 
+    public int SnapshotVersion { get; private set; }
+
+    public int CurrentLineStart { get; private set; }
+
+    public int CurrentLineEnd { get; private set; }
+
+    public string CurrentLineText { get; private set; }
+
+    public string CurrentLinePrefix { get; private set; }
+
+    public string CurrentLineSuffix { get; private set; }
+
+    public string CurrentLineIndent { get; private set; }
+
+    public bool IsCaretAtIndentOnly { get; private set; }
+
+    public bool IsCaretAtLineEnd { get; private set; }
+
+    public bool IsCurrentLineCommentOnly { get; private set; }
+
+    public bool IsCurrentLineEmptyOrWhitespace { get; private set; }
+
+    public bool IsSelectionEmpty { get; private set; }
+
+    public int SelectionStart { get; private set; }
+
+    public int SelectionEnd { get; private set; }
+
+    public string Language { get; private set; }
+
     public string PrefixHash { get; private set; }
 
     public string SuffixHash { get; private set; }
@@ -50,6 +80,21 @@ internal sealed class CompletionRequestSnapshot
         {
             FilePath = context.FilePath ?? string.Empty,
             CaretPosition = context.CaretPosition,
+            SnapshotVersion = context.SnapshotVersion,
+            CurrentLineStart = context.CurrentLineStart,
+            CurrentLineEnd = context.CurrentLineEnd,
+            CurrentLineText = context.CurrentLineText ?? string.Empty,
+            CurrentLinePrefix = context.CurrentLinePrefix ?? string.Empty,
+            CurrentLineSuffix = context.CurrentLineSuffix ?? string.Empty,
+            CurrentLineIndent = context.CurrentLineIndent ?? string.Empty,
+            IsCaretAtIndentOnly = context.IsCurrentLineIndentOnly,
+            IsCaretAtLineEnd = context.IsCaretAtLineEnd,
+            IsCurrentLineCommentOnly = context.IsCurrentLineCommentOnly,
+            IsCurrentLineEmptyOrWhitespace = context.IsCurrentLineEmptyOrWhitespace,
+            IsSelectionEmpty = context.IsSelectionEmpty,
+            SelectionStart = context.SelectionStart,
+            SelectionEnd = context.SelectionEnd,
+            Language = context.Language ?? "C/C++",
             PrefixHash = Hash(context.Prefix),
             SuffixHash = Hash(context.Suffix),
             ModelName = modelName,

@@ -24,7 +24,15 @@ internal sealed class CompletionCommitHandler
 
         var requestId = session.RequestId;
         var source = session.Source;
-        var insertedEnd = session.Accept(view);
+        var insertedEnd = session.AcceptPlan(view);
+        if (insertedEnd < 0)
+        {
+            _logger.Warning($"GhostText accept skipped. Reason=CommitPlanFailed, RequestId={requestId}, Source={source}");
+            GhostTextBroker.ClearActiveSession(view, requestId, source, "CommitPlanFailed");
+            _coordinator.SetState(CompletionState.Idle);
+            return false;
+        }
+
         _coordinator.SetState(CompletionState.Accepted);
         _logger.Info($"Caret moved to inserted completion end. RequestId={requestId}, Source={source}, Position={insertedEnd}, State={_coordinator.State}");
         _coordinator.SetState(CompletionState.Idle);

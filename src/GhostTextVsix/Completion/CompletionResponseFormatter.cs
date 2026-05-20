@@ -7,6 +7,7 @@ namespace GhostTextVsix.Completion;
 
 internal sealed class CompletionResponseFormatter
 {
+    private readonly CompletionIndentNormalizer _normalizer = new();
     private static readonly Regex FenceLineRegex = new(@"^\s*```(?:\w+|\+\+)?\s*$", RegexOptions.Compiled);
     private static readonly Regex CommentOnlyRegex = new(@"^\s*(//.*|/\*[\s\S]*\*/)\s*$", RegexOptions.Compiled);
     private static readonly Regex ExplanationPrefixRegex = new(@"^\s*(here|this|explanation|note|suggestion|completion)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -44,6 +45,18 @@ internal sealed class CompletionResponseFormatter
     public string Format(EditorContext context, string raw, int maxLines = 12, int maxCharacters = 1200)
     {
         return Format(context, raw, maxLines, maxCharacters, out _);
+    }
+
+    public NormalizedCompletion Normalize(
+        CompletionRequestSnapshot snapshot,
+        string raw,
+        long requestId,
+        string source,
+        string completionMode,
+        int maxLines,
+        int maxCharacters)
+    {
+        return _normalizer.Normalize(raw, snapshot, requestId, source, completionMode, maxLines, maxCharacters);
     }
 
     private static string RemoveCodeFences(string text)

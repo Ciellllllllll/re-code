@@ -1,4 +1,5 @@
 using System.ComponentModel.Composition;
+using System.Windows.Input;
 using GhostTextVsix.Diagnostics;
 using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.Language.Intellisense;
@@ -32,8 +33,13 @@ internal sealed class GhostTextViewCreationListener : IWpfTextViewCreationListen
 
     public void TextViewCreated(IWpfTextView textView)
     {
+        GhostTextInputArbiter.RegisterCompletionBrokers(CompletionBroker, AsyncCompletionBroker);
         var commandFilter = new GhostTextCommandFilter(textView, EditorAdaptersFactoryService, CompletionBroker, AsyncCompletionBroker);
         commandFilter.Attach();
+        textView.VisualElement.AddHandler(
+            Keyboard.PreviewKeyDownEvent,
+            new KeyEventHandler((_, args) => HandlePreviewKeyDownFallback(textView, args)),
+            true);
 
         textView.LayoutChanged += (_, _) =>
         {
@@ -45,6 +51,7 @@ internal sealed class GhostTextViewCreationListener : IWpfTextViewCreationListen
             if (GhostTextBroker.TryGetExisting(textView, out var session))
             {
                 session.Render(textView);
+                GhostTextInputArbiter.SuppressIntelliSenseIfGhostTextActive(textView, "LayoutChanged", CompletionBroker, AsyncCompletionBroker);
             }
         };
         textView.Caret.PositionChanged += (_, _) =>
@@ -66,5 +73,29 @@ internal sealed class GhostTextViewCreationListener : IWpfTextViewCreationListen
             GhostTextBroker.Dismiss(textView, "ViewClosed");
             GhostTextBroker.Remove(textView);
         };
+    }
+
+    private void HandlePreviewKeyDownFallback(IWpfTextView textView, KeyEventArgs args)
+    {
+        if (args.Key != Key.Tab && args.SystemKey != Key.Tab)
+        {
+            return;
+        }
+
+        GhostTextBroker.LogInfo($"WPF PreviewKeyDown received. ViewId={GhostTextBroker.GetViewId(textView)}, AlreadyHandled={args.Handled}");
+        if (!_detector.IsSupported(textView.TextBuffer.GetFileName()))
+        {
+            return;
+        }
+
+        var active = GhostTextInputArbiter.IsGhostTextActive(textView);
+        GhostTextBroker.LogInfo($"GhostText active on Tab={active}. Source=WpfPreviewKeyDown, ViewId={GhostTextBroker.GetViewId(textView)}, Tab textView matches active session={GhostTextBroker.HasExactActiveSession(textView)}");
+        if (!active)
+        {
+            return;
+        }
+
+        args.Handled = true;
+        GhostTextInputArbiter.TryAcceptGhostTextFromTab(textView, "WpfPreviewKeyDown", CompletionBroker, AsyncCompletionBroker);
     }
 }

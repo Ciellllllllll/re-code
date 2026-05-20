@@ -68,7 +68,7 @@ internal sealed class GhostTextCommandFilter : IOleCommandTarget
 
             if (ghostTextActive)
             {
-                if (GhostTextBroker.AcceptActiveGhostTextFromTab(_view, "CommandFilter", _completionBroker, _asyncCompletionBroker))
+                if (GhostTextInputArbiter.TryAcceptGhostTextFromTab(_view, "CommandFilter", _completionBroker, _asyncCompletionBroker))
                 {
                     return VSConstants.S_OK;
                 }

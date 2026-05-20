@@ -201,10 +201,11 @@ internal sealed class CompletionCoordinator
                 _logger.Info($"Cache hit. ProviderName={requestOptions.ProviderConfig.ProviderName}, ModelName={requestOptions.ProviderConfig.ModelName}, RequestId={requestId}, Source=Cache, LatencyMs={ElapsedMs(started):F0}, State={State}");
                 if (ContextStillMatches(view, requestOptions.MaxPrefixLines, requestOptions.MaxSuffixLines, snapshot, cancellationToken))
                 {
+                    cachedCompletion = RebaseCachedCompletion(cachedCompletion, snapshot, requestId);
                     if (GhostTextBroker.TryShow(view, cachedCompletion, requestId, "Cache"))
                     {
-                        _logger.Info($"GhostText shown. ProviderName={requestOptions.ProviderConfig.ProviderName}, ModelName={requestOptions.ProviderConfig.ModelName}, RequestId={requestId}, Source=Cache, ViewId={GhostTextBroker.GetViewId(view)}, Lines={CountLines(cachedCompletion)}, Chars={cachedCompletion.Length}, LatencyMs={ElapsedMs(started):F0}, State={State}");
-                        _logger.Info($"Auto completion request succeeded. ProviderName={requestOptions.ProviderConfig.ProviderName}, ModelName={requestOptions.ProviderConfig.ModelName}, RequestId={requestId}, Source=Cache, Lines={CountLines(cachedCompletion)}, Chars={cachedCompletion.Length}, LatencyMs={ElapsedMs(started):F0}, State={State}");
+                        _logger.Info($"GhostText shown. ProviderName={requestOptions.ProviderConfig.ProviderName}, ModelName={requestOptions.ProviderConfig.ModelName}, RequestId={requestId}, Source=Cache, ViewId={GhostTextBroker.GetViewId(view)}, Lines={cachedCompletion.LineCount}, Chars={cachedCompletion.CommitTextLength}, LatencyMs={ElapsedMs(started):F0}, State={State}");
+                        _logger.Info($"Auto completion request succeeded. ProviderName={requestOptions.ProviderConfig.ProviderName}, ModelName={requestOptions.ProviderConfig.ModelName}, RequestId={requestId}, Source=Cache, Lines={cachedCompletion.LineCount}, Chars={cachedCompletion.CommitTextLength}, LatencyMs={ElapsedMs(started):F0}, State={State}");
                     }
                 }
                 else
@@ -255,9 +256,11 @@ internal sealed class CompletionCoordinator
                 return;
             }
 
-            var formatted = _formatter.Format(context, providerResponse.Text, requestOptions.MaxCompletionLines, requestOptions.MaxCompletionCharacters, out var indentInfo);
-            _logger.Info($"Completion indent normalized. RequestId={requestId}, Source={requestOptions.Source}, CompletionMode={(isAutoCompletion ? CompletionMode.Auto : CompletionMode.Manual)}, BaseIndentLength={indentInfo.BaseIndentLength}, BaseIndentKind={indentInfo.BaseIndentKind}, LinesBefore={indentInfo.LinesBefore}, LinesAfter={indentInfo.LinesAfter}, FirstLineInline={indentInfo.FirstLineInline}, RemovedCommonIndentLength={indentInfo.RemovedCommonIndentLength}");
-            if (string.IsNullOrWhiteSpace(formatted))
+            var completionMode = isAutoCompletion ? CompletionMode.Auto : CompletionMode.Manual;
+            var normalized = _formatter.Normalize(snapshot, providerResponse.Text, requestId, requestOptions.Source, completionMode.ToString(), requestOptions.MaxCompletionLines, requestOptions.MaxCompletionCharacters);
+            _logger.Info($"Completion normalized. RequestId={requestId}, Source={requestOptions.Source}, CompletionMode={completionMode}, InsertMode={normalized.InsertMode}, CommitSpanStart={normalized.CommitSpanStart}, CommitSpanLength={normalized.CommitSpanLength}, DisplayTextLength={normalized.DisplayText?.Length ?? 0}, CommitTextLength={normalized.CommitTextLength}, SnapshotVersion={view.TextSnapshot.Version.VersionNumber}, ExpectedSnapshotVersion={normalized.ExpectedSnapshotVersion}");
+            _logger.Info($"Completion indent normalized. RequestId={requestId}, Source={requestOptions.Source}, CompletionMode={completionMode}, InsertMode={normalized.InsertMode}, CommitSpanStart={normalized.CommitSpanStart}, CommitSpanLength={normalized.CommitSpanLength}, BaseIndentLength={normalized.BaseIndent?.Length ?? 0}, BaseIndentKind={normalized.BaseIndentKind}, LinesBefore={normalized.LinesBefore}, LinesAfter={normalized.LinesAfter}, FirstLineInline={normalized.FirstLineInline}, IsCurrentLineCommentOnly={normalized.IsCurrentLineCommentOnly}, RemovedCommonIndentLength={normalized.RemovedCommonIndentLength}, DisplayTextLength={normalized.DisplayText?.Length ?? 0}, CommitTextLength={normalized.CommitTextLength}, SnapshotVersion={view.TextSnapshot.Version.VersionNumber}, ExpectedSnapshotVersion={normalized.ExpectedSnapshotVersion}");
+            if (string.IsNullOrWhiteSpace(normalized.CommitText))
             {
                 SetState(CompletionState.Idle);
                 _logger.Warning($"{(isAutoCompletion ? "Auto completion" : "Completion")} response was empty after formatting. RequestId={requestId}, Source={requestOptions.Source}, LatencyMs={ElapsedMs(started):F0}, State={State}");
@@ -266,7 +269,7 @@ internal sealed class CompletionCoordinator
 
             if (isAutoCompletion)
             {
-                _cache.Set(cacheKey, formatted, _settingsManager.GetCacheTtl());
+                _cache.Set(cacheKey, normalized, _settingsManager.GetCacheTtl());
             }
 
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -277,17 +280,17 @@ internal sealed class CompletionCoordinator
                 return;
             }
 
-            _logger.Info($"Completion formatted. RequestId={requestId}, Source={requestOptions.Source}, Lines={CountLines(formatted)}, Chars={formatted.Length}, LatencyMs={ElapsedMs(started):F0}, State={State}");
-            if (GhostTextBroker.TryShow(view, formatted, requestId, requestOptions.Source))
+            _logger.Info($"Completion formatted. RequestId={requestId}, Source={requestOptions.Source}, Lines={normalized.LineCount}, Chars={normalized.CommitTextLength}, LatencyMs={ElapsedMs(started):F0}, State={State}");
+            if (GhostTextBroker.TryShow(view, normalized, requestId, requestOptions.Source))
             {
-                _logger.Info($"GhostText shown. RequestId={requestId}, Source={requestOptions.Source}, ViewId={GhostTextBroker.GetViewId(view)}, Lines={CountLines(formatted)}, Chars={formatted.Length}, LatencyMs={ElapsedMs(started):F0}, State={State}");
+                _logger.Info($"GhostText shown. RequestId={requestId}, Source={requestOptions.Source}, ViewId={GhostTextBroker.GetViewId(view)}, Lines={normalized.LineCount}, Chars={normalized.CommitTextLength}, LatencyMs={ElapsedMs(started):F0}, State={State}");
                 if (isAutoCompletion)
                 {
-                    _logger.Info($"Auto completion request succeeded. RequestId={requestId}, Source=Api, Lines={CountLines(formatted)}, Chars={formatted.Length}, LatencyMs={ElapsedMs(started):F0}, State={State}");
+                    _logger.Info($"Auto completion request succeeded. RequestId={requestId}, Source=Api, Lines={normalized.LineCount}, Chars={normalized.CommitTextLength}, LatencyMs={ElapsedMs(started):F0}, State={State}");
                 }
                 else
                 {
-                    _logger.Info($"Manual completion request succeeded. RequestId={requestId}, Source=Manual, Lines={CountLines(formatted)}, Chars={formatted.Length}, LatencyMs={ElapsedMs(started):F0}, State={State}");
+                    _logger.Info($"Manual completion request succeeded. RequestId={requestId}, Source=Manual, Lines={normalized.LineCount}, Chars={normalized.CommitTextLength}, LatencyMs={ElapsedMs(started):F0}, State={State}");
                 }
             }
         }
@@ -362,6 +365,39 @@ internal sealed class CompletionCoordinator
     private static double ElapsedMs(DateTimeOffset started)
     {
         return (DateTimeOffset.UtcNow - started).TotalMilliseconds;
+    }
+
+    private static NormalizedCompletion RebaseCachedCompletion(
+        NormalizedCompletion cached,
+        CompletionRequestSnapshot snapshot,
+        long requestId)
+    {
+        var plan = new CompletionCommitPlan
+        {
+            CommitSpanStart = cached.InsertMode == InsertMode.CommentExpansion
+                ? snapshot.CurrentLineEnd
+                : cached.InsertMode == InsertMode.EmptyLineInsertion || cached.InsertMode == InsertMode.BlockInsertion
+                    ? snapshot.CurrentLineStart
+                    : cached.InsertMode == InsertMode.ReplaceSelection
+                        ? snapshot.SelectionStart
+                        : snapshot.CaretPosition,
+            CommitSpanLength = cached.InsertMode == InsertMode.EmptyLineInsertion || cached.InsertMode == InsertMode.BlockInsertion
+                ? Math.Max(0, snapshot.CaretPosition - snapshot.CurrentLineStart)
+                : cached.InsertMode == InsertMode.ReplaceSelection
+                    ? Math.Max(0, snapshot.SelectionEnd - snapshot.SelectionStart)
+                    : 0,
+            CommitText = cached.CommitText,
+            UsesTrackingPoint = true,
+            ExpectedSnapshotVersion = snapshot.SnapshotVersion
+        };
+
+        cached.RequestId = requestId;
+        cached.Source = "Cache";
+        cached.CommitSpanStart = plan.CommitSpanStart;
+        cached.CommitSpanLength = plan.CommitSpanLength;
+        cached.ExpectedSnapshotVersion = snapshot.SnapshotVersion;
+        cached.CommitPlan = plan;
+        return cached;
     }
 
     private bool ShouldSkipProvider(

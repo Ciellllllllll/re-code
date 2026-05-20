@@ -43,8 +43,13 @@ internal sealed class EditorContextCollector
         var suffix = snapshot.GetText(caretPosition, suffixEnd - caretPosition);
         var currentLineText = line.GetText();
         var currentLinePrefix = snapshot.GetText(line.Start.Position, caretPosition - line.Start.Position);
+        var currentLineSuffix = snapshot.GetText(caretPosition, line.End.Position - caretPosition);
         var indent = new string(currentLineText.TakeWhile(char.IsWhiteSpace).ToArray());
         var isCurrentLineIndentOnly = string.IsNullOrWhiteSpace(currentLinePrefix);
+        var selectedSpans = view.Selection.SelectedSpans;
+        var isSelectionEmpty = view.Selection.IsEmpty || selectedSpans.Count == 0;
+        var selectionStart = isSelectionEmpty ? caretPosition : selectedSpans[0].Start.Position;
+        var selectionEnd = isSelectionEmpty ? caretPosition : selectedSpans[selectedSpans.Count - 1].End.Position;
 
         context = new EditorContext
         {
@@ -52,12 +57,31 @@ internal sealed class EditorContextCollector
             CaretPosition = caretPosition,
             Prefix = _securityFilter.MaskSecrets(prefix),
             Suffix = _securityFilter.MaskSecrets(suffix),
+            SnapshotVersion = snapshot.Version.VersionNumber,
+            CurrentLineStart = line.Start.Position,
+            CurrentLineEnd = line.End.Position,
+            CurrentLineText = currentLineText,
             CurrentLinePrefix = _securityFilter.MaskSecrets(currentLinePrefix),
+            CurrentLineSuffix = _securityFilter.MaskSecrets(currentLineSuffix),
             CurrentLineIndent = indent,
-            IsCurrentLineIndentOnly = isCurrentLineIndentOnly
+            IsCurrentLineIndentOnly = isCurrentLineIndentOnly,
+            IsCaretAtLineEnd = caretPosition == line.End.Position,
+            IsCurrentLineCommentOnly = IsCommentOnly(currentLineText),
+            IsCurrentLineEmptyOrWhitespace = string.IsNullOrWhiteSpace(currentLineText),
+            IsSelectionEmpty = isSelectionEmpty,
+            SelectionStart = selectionStart,
+            SelectionEnd = selectionEnd,
+            Language = "C/C++"
         };
 
         _logger.Info($"Collected context for {Path.GetFileName(filePath)} at position {caretPosition}.");
         return true;
+    }
+
+    private static bool IsCommentOnly(string line)
+    {
+        var trimmed = (line ?? string.Empty).Trim();
+        return trimmed.StartsWith("//", StringComparison.Ordinal) ||
+               (trimmed.StartsWith("/*", StringComparison.Ordinal) && trimmed.EndsWith("*/", StringComparison.Ordinal));
     }
 }

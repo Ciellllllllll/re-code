@@ -81,7 +81,7 @@ internal sealed class GhostTextTabKeyProcessor : KeyProcessor
         }
 
         args.Handled = true;
-        if (GhostTextBroker.AcceptActiveGhostTextFromTab(_view, $"KeyProcessor.{eventName}", _completionBroker, _asyncCompletionBroker))
+        if (GhostTextInputArbiter.TryAcceptGhostTextFromTab(_view, $"KeyProcessor.{eventName}", _completionBroker, _asyncCompletionBroker))
         {
             return;
         }
