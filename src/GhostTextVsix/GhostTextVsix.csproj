@@ -130,6 +130,14 @@
     </PropertyGroup>
   </Target>
 
+  <PropertyGroup>
+    <GeneratePkgDefFile>true</GeneratePkgDefFile>
+    <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
+    <DeployExtension>true</DeployExtension>
+    <CreateVsixContainer>true</CreateVsixContainer>
+  </PropertyGroup>
+  
   <Import Project="$(VsSDKInstall)\Microsoft.VsSDK.targets"
           Condition="'$(UseLocalVisualStudioSdk)' != 'true' and '$(VsSDKInstall)' != '' and Exists('$(VsSDKInstall)\Microsoft.VsSDK.targets')" />
+
 </Project>
