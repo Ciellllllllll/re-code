@@ -21,11 +21,30 @@ internal sealed class CompletionRequestSnapshot
 
     public string ModelName { get; private set; }
 
+    public string ProviderName { get; private set; }
+
+    public string BaseUrlHash { get; private set; }
+
+    public int MaxTokens { get; private set; }
+
     public int MaxPrefixLines { get; private set; }
 
     public int MaxSuffixLines { get; private set; }
 
-    public static CompletionRequestSnapshot Create(EditorContext context, string modelName, int maxPrefixLines, int maxSuffixLines)
+    public int MaxCompletionLines { get; private set; }
+
+    public int MaxCompletionCharacters { get; private set; }
+
+    public static CompletionRequestSnapshot Create(
+        EditorContext context,
+        string modelName,
+        string providerName,
+        string baseUrl,
+        int maxTokens,
+        int maxPrefixLines,
+        int maxSuffixLines,
+        int maxCompletionLines,
+        int maxCompletionCharacters)
     {
         return new CompletionRequestSnapshot
         {
@@ -34,8 +53,13 @@ internal sealed class CompletionRequestSnapshot
             PrefixHash = Hash(context.Prefix),
             SuffixHash = Hash(context.Suffix),
             ModelName = modelName,
+            ProviderName = providerName,
+            BaseUrlHash = Hash(baseUrl),
+            MaxTokens = maxTokens,
             MaxPrefixLines = maxPrefixLines,
-            MaxSuffixLines = maxSuffixLines
+            MaxSuffixLines = maxSuffixLines,
+            MaxCompletionLines = maxCompletionLines,
+            MaxCompletionCharacters = maxCompletionCharacters
         };
     }
 
@@ -48,7 +72,20 @@ internal sealed class CompletionRequestSnapshot
     }
 
     public string CacheKey =>
-        string.Join("|", FilePath.ToUpperInvariant(), CaretPosition, PrefixHash, SuffixHash, ModelName, MaxPrefixLines, MaxSuffixLines);
+        string.Join(
+            "|",
+            FilePath.ToUpperInvariant(),
+            CaretPosition,
+            PrefixHash,
+            SuffixHash,
+            ProviderName,
+            ModelName,
+            BaseUrlHash,
+            MaxTokens,
+            MaxPrefixLines,
+            MaxSuffixLines,
+            MaxCompletionLines,
+            MaxCompletionCharacters);
 
     private static string Hash(string value)
     {

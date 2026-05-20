@@ -14,7 +14,7 @@
       <Menu guid="guidGhostTextCmdSet" id="GhostTextMenu" priority="0x0100" type="Menu">
         <Parent guid="guidGhostTextCmdSet" id="GhostTextGroup" />
         <Strings>
-          <ButtonText>DeepSeek C/C++ Completion</ButtonText>
+          <ButtonText>re:code</ButtonText>
         </Strings>
       </Menu>
     </Menus>

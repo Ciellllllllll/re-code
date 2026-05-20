@@ -22,7 +22,7 @@ internal sealed class DeepSeekOutputLogger
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         var outputWindow = (IVsOutputWindow)await package.GetServiceAsync(typeof(SVsOutputWindow));
         var paneGuid = PaneGuid;
-        ErrorHandler.ThrowOnFailure(outputWindow.CreatePane(ref paneGuid, "DeepSeek C/C++ Completion", 1, 1));
+        ErrorHandler.ThrowOnFailure(outputWindow.CreatePane(ref paneGuid, "re:code", 1, 1));
         ErrorHandler.ThrowOnFailure(outputWindow.GetPane(ref paneGuid, out var pane));
         return new DeepSeekOutputLogger(pane);
     }

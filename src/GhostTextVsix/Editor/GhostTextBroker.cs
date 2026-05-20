@@ -13,12 +13,14 @@ internal static class GhostTextBroker
     private static CompletionCoordinator _coordinator;
     private static CppDocumentDetector _detector;
     private static CompletionCommitHandler _commitHandler;
+    private static DeepSeekOutputLogger _logger;
 
-    public static void Initialize(CompletionCoordinator coordinator, CppDocumentDetector detector, CompletionCommitHandler commitHandler)
+    public static void Initialize(CompletionCoordinator coordinator, CppDocumentDetector detector, CompletionCommitHandler commitHandler, DeepSeekOutputLogger logger)
     {
         _coordinator = coordinator;
         _detector = detector;
         _commitHandler = commitHandler;
+        _logger = logger;
     }
 
     public static GhostTextSession GetOrCreate(IWpfTextView view)
@@ -29,6 +31,16 @@ internal static class GhostTextBroker
     public static bool TryGetExisting(IWpfTextView view, out GhostTextSession session)
     {
         return Sessions.TryGetValue(view, out session);
+    }
+
+    public static bool IsActive(IWpfTextView view)
+    {
+        return TryGetExisting(view, out var session) && session.HasSuggestion;
+    }
+
+    public static void LogInfo(string message)
+    {
+        _logger?.Info(message);
     }
 
     public static void Remove(IWpfTextView view)
@@ -49,7 +61,31 @@ internal static class GhostTextBroker
         }
     }
 
-    public static bool TryShow(IWpfTextView view, string text)
+    public static void DismissAllIfCaretOrSelectionChanged(string reason)
+    {
+        if (_commitHandler == null)
+        {
+            return;
+        }
+
+        foreach (var sessionEntry in Sessions.ToArray())
+        {
+            if (sessionEntry.Value.HasCaretOrSelectionChanged(sessionEntry.Key))
+            {
+                _commitHandler.TryDismiss(sessionEntry.Key, reason);
+            }
+        }
+    }
+
+    public static bool DismissIfCaretOrSelectionChanged(IWpfTextView view, string reason)
+    {
+        return _commitHandler != null
+            && TryGetExisting(view, out var session)
+            && session.HasCaretOrSelectionChanged(view)
+            && _commitHandler.TryDismiss(view, reason);
+    }
+
+    public static bool TryShow(IWpfTextView view, string text, long requestId, string source)
     {
         if (_coordinator == null || _detector == null)
         {
@@ -63,8 +99,9 @@ internal static class GhostTextBroker
         }
 
         var session = GetOrCreate(view);
-        session.Show(view, text);
+        session.Show(view, text, requestId, source, _logger);
         _coordinator.SetState(CompletionState.ShowingGhostText);
+        _commitHandler?.LogSessionActivated(session);
         return true;
     }
 

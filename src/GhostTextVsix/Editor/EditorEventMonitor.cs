@@ -65,7 +65,7 @@ internal sealed class EditorEventMonitor : IVsSelectionEvents, IDisposable
         ISelectionContainer pSCNew)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-        GhostTextBroker.DismissAll("SelectionChanged");
+        GhostTextBroker.DismissAllIfCaretOrSelectionChanged("SelectionChanged");
 
         return VSConstants.S_OK;
     }

@@ -17,8 +17,8 @@ using Microsoft.VisualStudio.TextManager.Interop;
 namespace GhostTextVsix;
 
 [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
-[InstalledProductRegistration("DeepSeek C/C++ Completion", "DeepSeek powered C/C++ ghost text completion", "0.2")]
-[ProvideOptionPage(typeof(DeepSeekOptionsPage), "DeepSeek C/C++ Completion", "General", 0, 0, true)]
+[InstalledProductRegistration("re:code", "C/C++ ghost text completion", "0.2")]
+[ProvideOptionPage(typeof(DeepSeekOptionsPage), "re:code", "General", 0, 0, true)]
 [ProvideAutoLoad(UIContextGuids80.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
 [Guid(Guids.PackageString)]
 public sealed class DeepSeekCompletionPackage : AsyncPackage
@@ -48,7 +48,6 @@ public sealed class DeepSeekCompletionPackage : AsyncPackage
         var contextCollector = new EditorContextCollector(detector, securityFilter, logger);
         var promptBuilder = new PromptBuilder();
         var formatter = new CompletionResponseFormatter();
-        var apiClient = new DeepSeekApiClient(settingsManager, logger);
         var editorAdapter = componentModel.GetService<Microsoft.VisualStudio.Editor.IVsEditorAdaptersFactoryService>();
         var viewLocator = new ActiveTextViewLocator(textManager, editorAdapter);
 
@@ -58,13 +57,12 @@ public sealed class DeepSeekCompletionPackage : AsyncPackage
             detector,
             contextCollector,
             promptBuilder,
-            apiClient,
             formatter,
             viewLocator);
         var commitHandler = new CompletionCommitHandler(_completionCoordinator, logger);
 
         _diagnosticsController = new DiagnosticsController(logger, settingsManager, _completionCoordinator);
-        GhostTextBroker.Initialize(_completionCoordinator, detector, commitHandler);
+        GhostTextBroker.Initialize(_completionCoordinator, detector, commitHandler, logger);
         _editorEventMonitor = new EditorEventMonitor(monitorSelection, logger);
         _editorEventMonitor.Start();
         _toolsMenuController = new ToolsMenuController(this, dte, _completionCoordinator, settingsManager, _diagnosticsController, logger);

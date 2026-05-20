@@ -30,9 +30,9 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(UseLocalVisualStudioSdk)' == 'true'">
-    <GeneratePkgDefFile>false</GeneratePkgDefFile>
+    <GeneratePkgDefFile>true</GeneratePkgDefFile>
     <UseCodebase>false</UseCodebase>
-    <IncludeAssemblyInVSIXContainer>false</IncludeAssemblyInVSIXContainer>
+    <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
     <IncludeDebugSymbolsInVSIXContainer>false</IncludeDebugSymbolsInVSIXContainer>
   </PropertyGroup>
 
@@ -123,6 +123,12 @@
     </None>
     <VSCTCompile Include="DeepSeekCompletion.vsct" Condition="'$(UseLocalVisualStudioSdk)' != 'true' and '$(UseStaticVsctMenu)' == 'true'" />
   </ItemGroup>
+
+  <Target Name="SetPkgDefAssemblyInput" BeforeTargets="GeneratePkgDef" DependsOnTargets="Compile">
+    <PropertyGroup>
+      <CreatePkgDefAssemblyToProcess Condition="'$(CreatePkgDefAssemblyToProcess)' == ''">$(TargetPath)</CreatePkgDefAssemblyToProcess>
+    </PropertyGroup>
+  </Target>
 
   <Import Project="$(VsSDKInstall)\Microsoft.VsSDK.targets"
           Condition="'$(UseLocalVisualStudioSdk)' != 'true' and '$(VsSDKInstall)' != '' and Exists('$(VsSDKInstall)\Microsoft.VsSDK.targets')" />

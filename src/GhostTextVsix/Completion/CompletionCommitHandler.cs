@@ -23,10 +23,13 @@ internal sealed class CompletionCommitHandler
             return false;
         }
 
-        session.Accept(view);
+        var requestId = session.RequestId;
+        var source = session.Source;
+        var insertedEnd = session.Accept(view);
         _coordinator.SetState(CompletionState.Accepted);
+        _logger.Info($"Caret moved to inserted completion end. RequestId={requestId}, Source={source}, Position={insertedEnd}, State={_coordinator.State}");
         _coordinator.SetState(CompletionState.Idle);
-        _logger.Info("GhostText accepted.");
+        _logger.Info($"GhostText accepted. RequestId={requestId}, Source={source}, State={_coordinator.State}");
         return true;
     }
 
@@ -38,10 +41,17 @@ internal sealed class CompletionCommitHandler
             return false;
         }
 
+        var requestId = session.RequestId;
+        var source = session.Source;
         session.Dismiss();
         _coordinator.SetState(CompletionState.Dismissed);
         _coordinator.SetState(CompletionState.Idle);
-        _logger.Info($"GhostText dismissed. Reason={reason}");
+        _logger.Info($"GhostText dismissed. RequestId={requestId}, Source={source}, Reason={reason}, State={_coordinator.State}");
         return true;
+    }
+
+    public void LogSessionActivated(GhostTextSession session)
+    {
+        _logger.Info($"GhostText session activated. RequestId={session.RequestId}, Source={session.Source}, State={_coordinator.State}");
     }
 }

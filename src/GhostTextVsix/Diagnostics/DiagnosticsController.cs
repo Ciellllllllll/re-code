@@ -21,6 +21,8 @@ internal sealed class DiagnosticsController
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         _logger.Activate();
-        _logger.Info($"State={_coordinator.State}, AutoCompletion={_settingsManager.IsAutoCompletionEnabled()}, ApiKeyConfigured={!string.IsNullOrWhiteSpace(_settingsManager.GetApiKey())}");
+        var autoProvider = _settingsManager.GetAutoProviderConfig();
+        var manualProvider = _settingsManager.GetManualProviderConfig();
+        _logger.Info($"State={_coordinator.State}, AutoCompletion={_settingsManager.IsAutoCompletionEnabled()}, AutoProvider={autoProvider.ProviderName}, AutoModel={autoProvider.ModelName}, AutoApiKeyConfigured={autoProvider.IsLocal || !string.IsNullOrWhiteSpace(autoProvider.ApiKey)}, ManualProvider={manualProvider.ProviderName}, ManualModel={manualProvider.ModelName}, ManualApiKeyConfigured={manualProvider.IsLocal || !string.IsNullOrWhiteSpace(manualProvider.ApiKey)}");
     }
 }

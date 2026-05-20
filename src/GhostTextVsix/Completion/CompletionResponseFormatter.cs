@@ -12,7 +12,7 @@ internal sealed class CompletionResponseFormatter
     private static readonly Regex ExplanationPrefixRegex = new(@"^\s*(here|this|explanation|note|suggestion|completion)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex BulletPrefixRegex = new(@"^\s*[-*]\s+", RegexOptions.Compiled);
 
-    public string Format(EditorContext context, string raw)
+    public string Format(EditorContext context, string raw, int maxLines = 12, int maxCharacters = 1200)
     {
         if (string.IsNullOrWhiteSpace(raw))
         {
@@ -25,7 +25,7 @@ internal sealed class CompletionResponseFormatter
         text = RemoveAlreadyTypedPrefix(context.CurrentLinePrefix, text);
         text = RemoveAlreadyTypedPrefix(context.Prefix, text);
         text = ApplyIndentation(context.CurrentLineIndent, text);
-        text = TrimLength(text);
+        text = TrimLength(text, maxLines, maxCharacters);
 
         if (string.IsNullOrWhiteSpace(text) || CommentOnlyRegex.IsMatch(text))
         {
@@ -139,11 +139,12 @@ internal sealed class CompletionResponseFormatter
         return string.Join(Environment.NewLine, lines);
     }
 
-    private static string TrimLength(string text)
+    private static string TrimLength(string text, int maxLines, int maxCharacters)
     {
-        var lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None).Take(12).ToArray();
+        var lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None).Take(Math.Max(1, maxLines)).ToArray();
         var truncated = string.Join(Environment.NewLine, lines);
-        return truncated.Length > 1200 ? truncated.Substring(0, 1200) : truncated;
+        var characterLimit = Math.Max(1, maxCharacters);
+        return truncated.Length > characterLimit ? truncated.Substring(0, characterLimit) : truncated;
     }
 
     private static bool LooksLikeCode(string line)

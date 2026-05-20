@@ -1,6 +1,7 @@
 using System.ComponentModel.Composition;
 using GhostTextVsix.Diagnostics;
 using Microsoft.VisualStudio.Editor;
+using Microsoft.VisualStudio.Language.Intellisense;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Utilities;
 
@@ -11,11 +12,14 @@ namespace GhostTextVsix.Editor;
 [TextViewRole(PredefinedTextViewRoles.Document)]
 internal sealed class GhostTextViewCreationListener : IWpfTextViewCreationListener
 {
-    public const string LayerName = "DeepSeekGhostTextAdornmentLayer";
+    public const string LayerName = "GhostTextAdornmentLayer";
     private readonly CppDocumentDetector _detector = new();
 
     [Import]
     internal IVsEditorAdaptersFactoryService EditorAdaptersFactoryService { get; set; }
+
+    [Import]
+    internal ICompletionBroker CompletionBroker { get; set; }
 
     [Export(typeof(AdornmentLayerDefinition))]
     [Name(LayerName)]
@@ -24,7 +28,7 @@ internal sealed class GhostTextViewCreationListener : IWpfTextViewCreationListen
 
     public void TextViewCreated(IWpfTextView textView)
     {
-        var commandFilter = new GhostTextCommandFilter(textView, EditorAdaptersFactoryService);
+        var commandFilter = new GhostTextCommandFilter(textView, EditorAdaptersFactoryService, CompletionBroker);
         commandFilter.Attach();
 
         textView.LayoutChanged += (_, _) =>
@@ -43,7 +47,7 @@ internal sealed class GhostTextViewCreationListener : IWpfTextViewCreationListen
         {
             if (_detector.IsSupported(textView.TextBuffer.GetFileName()))
             {
-                GhostTextBroker.Dismiss(textView, "CaretMoved");
+                GhostTextBroker.DismissIfCaretOrSelectionChanged(textView, "CaretMoved");
             }
         };
         textView.TextBuffer.Changed += (_, _) =>

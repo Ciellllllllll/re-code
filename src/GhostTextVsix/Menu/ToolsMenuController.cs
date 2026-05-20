@@ -11,7 +11,7 @@ namespace GhostTextVsix.Menu;
 
 internal sealed class ToolsMenuController : IDisposable
 {
-    private const string RootCaption = "DeepSeek C/C++ Completion";
+    private const string RootCaption = "re:code";
 
     private readonly AsyncPackage _package;
     private readonly DTE2 _dte;
