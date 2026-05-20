@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using GhostTextVsix.Completion;
 using GhostTextVsix.Diagnostics;
 using Microsoft.VisualStudio;
@@ -12,6 +14,7 @@ internal sealed class EditorEventMonitor : IVsSelectionEvents, IDisposable
     private readonly IVsMonitorSelection _monitorSelection;
     private readonly DeepSeekOutputLogger _logger;
     private uint _cookie;
+    private bool _disposed;
 
     public EditorEventMonitor(
         IVsMonitorSelection monitorSelection,
@@ -29,11 +32,47 @@ internal sealed class EditorEventMonitor : IVsSelectionEvents, IDisposable
 
     public void Dispose()
     {
-        ThreadHelper.ThrowIfNotOnUIThread();
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         if (_cookie != 0)
         {
-            _monitorSelection.UnadviseSelectionEvents(_cookie);
-            _cookie = 0;
+            try
+            {
+                _monitorSelection.UnadviseSelectionEvents(_cookie);
+            }
+            catch (ObjectDisposedException ex)
+            {
+                SafeLogDisposeWarning("EditorEventMonitor dispose ignored ObjectDisposedException", ex);
+            }
+            catch (COMException ex)
+            {
+                SafeLogDisposeWarning("EditorEventMonitor dispose ignored COMException", ex);
+            }
+            catch (InvalidOperationException ex)
+            {
+                SafeLogDisposeWarning("EditorEventMonitor dispose ignored InvalidOperationException", ex);
+            }
+            finally
+            {
+                _cookie = 0;
+            }
+        }
+    }
+
+    private void SafeLogDisposeWarning(string message, Exception ex)
+    {
+        var safeMessage = $"{message}. ErrorType={ex.GetType().Name}";
+        try
+        {
+            _logger?.Warning(safeMessage);
+        }
+        catch
+        {
+            Debug.WriteLine(safeMessage);
         }
     }
 

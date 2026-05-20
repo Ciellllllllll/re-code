@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,6 +28,8 @@ public sealed class DeepSeekCompletionPackage : AsyncPackage
     private DiagnosticsController _diagnosticsController;
     private EditorEventMonitor _editorEventMonitor;
     private ToolsMenuController _toolsMenuController;
+    private DeepSeekOutputLogger _logger;
+    private bool _disposed;
 
     internal static DeepSeekCompletionPackage Instance { get; private set; }
 
@@ -43,6 +46,7 @@ public sealed class DeepSeekCompletionPackage : AsyncPackage
 
         var settingsManager = new DeepSeekSettingsManager(this);
         var logger = await DeepSeekOutputLogger.CreateAsync(this);
+        _logger = logger;
         var detector = new CppDocumentDetector();
         var securityFilter = new SecurityFilter();
         var contextCollector = new EditorContextCollector(detector, securityFilter, logger);
@@ -73,16 +77,97 @@ public sealed class DeepSeekCompletionPackage : AsyncPackage
 
     protected override void Dispose(bool disposing)
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         if (disposing)
         {
-            ThreadHelper.JoinableTaskFactory.Run(async delegate
+            SafeLogDisposeInfo("Package dispose started.");
+            try
             {
-                await JoinableTaskFactory.SwitchToMainThreadAsync();
-                _toolsMenuController?.Dispose();
-                _editorEventMonitor?.Dispose();
-            });
+                ThreadHelper.JoinableTaskFactory.Run(async delegate
+                {
+                    await JoinableTaskFactory.SwitchToMainThreadAsync();
+                    SafeDisposeComponent("ToolsMenuController", () => _toolsMenuController?.Dispose());
+                    SafeDisposeComponent("EditorEventMonitor", () => _editorEventMonitor?.Dispose());
+                });
+            }
+            catch (ObjectDisposedException ex)
+            {
+                SafeLogDisposeWarning("Package dispose ignored ObjectDisposedException", ex);
+            }
+            catch (COMException ex)
+            {
+                SafeLogDisposeWarning("Package dispose ignored COMException", ex);
+            }
+            catch (InvalidOperationException ex)
+            {
+                SafeLogDisposeWarning("Package dispose ignored InvalidOperationException", ex);
+            }
+            catch (Exception ex)
+            {
+                SafeLogDisposeWarning("Package dispose ignored exception", ex);
+            }
+            finally
+            {
+                _toolsMenuController = null;
+                _editorEventMonitor = null;
+                SafeLogDisposeInfo("Package dispose completed.");
+            }
         }
 
         base.Dispose(disposing);
+    }
+
+    private void SafeDisposeComponent(string name, Action disposeAction)
+    {
+        try
+        {
+            disposeAction();
+        }
+        catch (ObjectDisposedException ex)
+        {
+            SafeLogDisposeWarning($"{name} dispose ignored ObjectDisposedException", ex);
+        }
+        catch (COMException ex)
+        {
+            SafeLogDisposeWarning($"{name} dispose ignored COMException", ex);
+        }
+        catch (InvalidOperationException ex)
+        {
+            SafeLogDisposeWarning($"{name} dispose ignored InvalidOperationException", ex);
+        }
+        catch (Exception ex)
+        {
+            SafeLogDisposeWarning($"{name} dispose ignored exception", ex);
+        }
+    }
+
+    private void SafeLogDisposeInfo(string message)
+    {
+        try
+        {
+            _logger?.Info(message);
+        }
+        catch
+        {
+            Debug.WriteLine(message);
+        }
+    }
+
+    private void SafeLogDisposeWarning(string message, Exception ex)
+    {
+        var safeMessage = $"{message}. ErrorType={ex.GetType().Name}";
+        try
+        {
+            _logger?.Warning(safeMessage);
+        }
+        catch
+        {
+            Debug.WriteLine(safeMessage);
+        }
     }
 }

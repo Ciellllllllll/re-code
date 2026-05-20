@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using EnvDTE80;
 using GhostTextVsix.Completion;
 using GhostTextVsix.Diagnostics;
@@ -21,6 +23,7 @@ internal sealed class ToolsMenuController : IDisposable
     private readonly DeepSeekOutputLogger _logger;
     private readonly List<MenuButtonBinding> _bindings = new();
     private CommandBarPopup _rootPopup;
+    private bool _disposed;
 
     public ToolsMenuController(
         AsyncPackage package,
@@ -75,26 +78,40 @@ internal sealed class ToolsMenuController : IDisposable
 
     public void Dispose()
     {
-        ThreadHelper.ThrowIfNotOnUIThread();
-
-        foreach (var binding in _bindings)
+        if (_disposed)
         {
-            binding.Button.Click -= binding.Handler;
+            SafeLogInfo("ToolsMenuController dispose skipped because already disposed.");
+            return;
         }
 
-        _bindings.Clear();
-
-        if (_rootPopup != null)
+        _disposed = true;
+        SafeLogInfo("ToolsMenuController dispose started.");
+        try
         {
-            try
+            foreach (var binding in _bindings.ToArray())
             {
-                _rootPopup.Delete(true);
-            }
-            catch
-            {
-                // Ignore cleanup failures during shutdown.
+                SafeUnsubscribe(binding);
             }
         }
+        catch (ObjectDisposedException ex)
+        {
+            SafeLogWarning("ToolsMenuController dispose ignored ObjectDisposedException", ex);
+        }
+        catch (COMException ex)
+        {
+            SafeLogWarning("ToolsMenuController dispose ignored COMException", ex);
+        }
+        catch (InvalidOperationException ex)
+        {
+            SafeLogWarning("ToolsMenuController dispose ignored InvalidOperationException", ex);
+        }
+        finally
+        {
+            _bindings.Clear();
+            _rootPopup = null;
+        }
+
+        SafeLogInfo("ToolsMenuController dispose completed.");
     }
 
     private void AddButton(string caption, Action action)
@@ -137,11 +154,71 @@ internal sealed class ToolsMenuController : IDisposable
 
         for (var index = toolsBar.Controls.Count; index >= 1; index--)
         {
-            if (toolsBar.Controls[index] is CommandBarPopup popup &&
-                string.Equals(popup.Caption, RootCaption, StringComparison.Ordinal))
+            try
             {
-                popup.Delete(true);
+                if (toolsBar.Controls[index] is CommandBarPopup popup &&
+                    string.Equals(popup.Caption, RootCaption, StringComparison.Ordinal))
+                {
+                    popup.Delete(true);
+                }
             }
+            catch (ObjectDisposedException)
+            {
+                return;
+            }
+            catch (COMException)
+            {
+                return;
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+        }
+    }
+
+    private void SafeUnsubscribe(MenuButtonBinding binding)
+    {
+        try
+        {
+            binding.Button.Click -= binding.Handler;
+        }
+        catch (ObjectDisposedException ex)
+        {
+            SafeLogWarning("ToolsMenuController dispose ignored ObjectDisposedException", ex);
+        }
+        catch (COMException ex)
+        {
+            SafeLogWarning("ToolsMenuController dispose ignored COMException", ex);
+        }
+        catch (InvalidOperationException ex)
+        {
+            SafeLogWarning("ToolsMenuController dispose ignored InvalidOperationException", ex);
+        }
+    }
+
+    private void SafeLogInfo(string message)
+    {
+        try
+        {
+            _logger?.Info(message);
+        }
+        catch
+        {
+            Debug.WriteLine(message);
+        }
+    }
+
+    private void SafeLogWarning(string message, Exception ex)
+    {
+        var safeMessage = $"{message}. ErrorType={ex.GetType().Name}";
+        try
+        {
+            _logger?.Warning(safeMessage);
+        }
+        catch
+        {
+            Debug.WriteLine(safeMessage);
         }
     }
 
