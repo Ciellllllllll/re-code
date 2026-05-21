@@ -13,4 +13,5 @@ src/**/obj/
 bin/
 obj/
 .artifacts/
+artifacts/
 *.vsix
