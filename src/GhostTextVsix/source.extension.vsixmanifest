@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
   <Metadata>
-    <Identity Id="GhostTextVsix.0fd3a8ea-948f-4c4c-97b0-3bba43fc8630" Version="0.9.0" Language="en-US" Publisher="Ciellllllllll" />
+    <Identity Id="GhostTextVsix.0fd3a8ea-948f-4c4c-97b0-3bba43fc8630" Version="0.9.1" Language="en-US" Publisher="Ciellllllllll" />
     <DisplayName>re:code</DisplayName>
     <Description xml:space="preserve">AI ghost text completion for C/C++ in Visual Studio 2022.</Description>
     <MoreInfo>https://github.com/Ciellllllllll/re-code</MoreInfo>
