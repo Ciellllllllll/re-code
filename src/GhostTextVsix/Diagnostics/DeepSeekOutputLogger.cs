@@ -10,6 +10,7 @@ namespace GhostTextVsix.Diagnostics;
 internal sealed class DeepSeekOutputLogger
 {
     private static readonly Guid PaneGuid = new("A983A9D6-533C-4D28-BBE6-5EECE4B25E64");
+    private static readonly TimeZoneInfo JstTimeZone = CreateJstTimeZone();
     private readonly IVsOutputWindowPane _pane;
 
     private DeepSeekOutputLogger(IVsOutputWindowPane pane)
@@ -44,8 +45,26 @@ internal sealed class DeepSeekOutputLogger
         ThreadHelper.JoinableTaskFactory.Run(async delegate
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            var line = $"[{DateTimeOffset.Now.ToString("u", CultureInfo.InvariantCulture)}] [{level}] {message}{Environment.NewLine}";
+            var timestamp = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, JstTimeZone)
+                .ToString("yyyy-MM-dd HH:mm:ss 'JST'", CultureInfo.InvariantCulture);
+            var line = $"[{timestamp}] [{level}] {message}{Environment.NewLine}";
             _pane.OutputStringThreadSafe(line);
         });
+    }
+
+    private static TimeZoneInfo CreateJstTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Tokyo Standard Time");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.CreateCustomTimeZone("JST", TimeSpan.FromHours(9), "JST", "JST");
+        }
+        catch (InvalidTimeZoneException)
+        {
+            return TimeZoneInfo.CreateCustomTimeZone("JST", TimeSpan.FromHours(9), "JST", "JST");
+        }
     }
 }
