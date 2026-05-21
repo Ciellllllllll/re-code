@@ -130,9 +130,9 @@ public sealed class DeepSeekOptionsPage : DialogPage
     [Category("補完")]
     [DisplayName("自動補完を有効化")]
     [Description("対応する C/C++ ファイルで入力停止後に自動で補完をリクエストします。")]
-    [DefaultValue(true)]
+    [DefaultValue(false)]
     [PropertyOrder(100)]
-    public bool EnableAutoCompletion { get; set; } = true;
+    public bool EnableAutoCompletion { get; set; } = false;
 
     [Category("補完")]
     [DisplayName("デバウンス時間ミリ秒")]

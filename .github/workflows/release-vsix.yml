@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: write
+  attestations: write
+  id-token: write
 
 jobs:
   build-release:
@@ -15,28 +17,60 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
         with:
           dotnet-version: "10.0.x"
 
+      - name: Install Sign CLI
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          dotnet tool install --global sign --version 0.9.1-beta.26227.3 --prerelease
+          "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Build signed VSIX release artifact
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          RECODE_VSIX_CERT_BASE64: ${{ secrets.RECODE_VSIX_CERT_BASE64 }}
+          RECODE_VSIX_CERT_PASSWORD: ${{ secrets.RECODE_VSIX_CERT_PASSWORD }}
+          RECODE_VSIX_TIMESTAMP_URL: ${{ secrets.RECODE_VSIX_TIMESTAMP_URL }}
+        run: .\scripts\build-release.ps1 -RequireSignature
+
       - name: Build VSIX release artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         shell: pwsh
         run: .\scripts\build-release.ps1
 
+      - name: Resolve release VSIX path
+        id: resolve_vsix
+        shell: pwsh
+        run: |
+          $vsix = Get-ChildItem -LiteralPath artifacts\release -Filter *.vsix | Select-Object -First 1
+          if ($null -eq $vsix) {
+            throw "Release VSIX asset was not found."
+          }
+          "path=$($vsix.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Generate artifact attestation
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        with:
+          subject-path: ${{ steps.resolve_vsix.outputs.path }}
+
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: re-code-release
           path: artifacts/release/*
 
       - name: Publish GitHub release assets
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           files: |
-            artifacts/release/*.vsix
+            ${{ steps.resolve_vsix.outputs.path }}
             artifacts/release/SHA256SUMS.txt
             artifacts/release/release-notes.md
