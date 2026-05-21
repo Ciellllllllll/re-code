@@ -10,12 +10,24 @@ $root = "D:\Git\GhostText"
 $project = "$root\src\GhostTextVsix\GhostTextVsix.csproj"
 $vsix = "$root\src\GhostTextVsix\.vsix"
 $pkgdef = "$root\src\GhostTextVsix\obj\Debug\net48\GhostTextVsix.pkgdef"
+$visualStudioLocalAppData = Join-Path $env:LOCALAPPDATA "Microsoft\VisualStudio"
 
 $vsixInstaller = "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\VSIXInstaller.exe"
 $devenvExe = "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\devenv.exe"
 $devenvCom = "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\devenv.com"
 
 $extensionId = "GhostTextVsix.0fd3a8ea-948f-4c4c-97b0-3bba43fc8630"
+$extensionAssemblyName = "GhostTextVsix.dll"
+$extensionStateFiles = @(
+    "ExtensionMetadataCache.sqlite",
+    "ExtensionMetadata.mpack",
+    "extensions.configurationchanged"
+)
+$commonBuildProperties = @(
+    "/p:Configuration=Debug",
+    "/p:DeployExtension=false",
+    "/p:CreateVsixContainer=true"
+)
 
 Write-Host "== re:code VSIX Experimental deploy ==" -ForegroundColor Cyan
 
@@ -64,6 +76,33 @@ function Close-ExperimentalInstance {
     Start-Sleep -Seconds 2
 }
 
+function Remove-PathIfExists {
+    param(
+        [string]$Path
+    )
+
+    if (!(Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    try {
+        Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+    }
+    catch {
+        Write-Warning "Remove-Item failed for '$Path': $($_.Exception.Message). Retrying with .NET file APIs."
+
+        if ([System.IO.Directory]::Exists($Path)) {
+            [System.IO.Directory]::Delete($Path, $true)
+        }
+        elseif ([System.IO.File]::Exists($Path)) {
+            [System.IO.File]::Delete($Path)
+        }
+        else {
+            throw
+        }
+    }
+}
+
 function Invoke-DotNetMsBuild {
     param(
         [string]$Action,
@@ -77,6 +116,96 @@ function Invoke-DotNetMsBuild {
     if ($LASTEXITCODE -ne 0) {
         throw "$Action failed. ExitCode=$LASTEXITCODE"
     }
+}
+
+function Get-ExperimentalHiveDirectories {
+    if (!(Test-Path -LiteralPath $visualStudioLocalAppData)) {
+        return @()
+    }
+
+    return @(
+        Get-ChildItem -LiteralPath $visualStudioLocalAppData -Directory -Force |
+            Where-Object { $_.Name -match "Exp$" }
+    )
+}
+
+function Test-GhostTextExtensionDirectory {
+    param(
+        [System.IO.DirectoryInfo]$Directory
+    )
+
+    $manifest = Join-Path $Directory.FullName "manifest.json"
+    $vsixManifest = Join-Path $Directory.FullName "extension.vsixmanifest"
+    $assembly = Join-Path $Directory.FullName $extensionAssemblyName
+
+    foreach ($candidate in @($manifest, $vsixManifest)) {
+        if (!(Test-Path -LiteralPath $candidate)) {
+            continue
+        }
+
+        try {
+            $content = Get-Content -LiteralPath $candidate -Raw -ErrorAction Stop
+            if ($content.Contains($extensionId)) {
+                return $true
+            }
+        }
+        catch {
+            Write-Warning "Could not inspect extension metadata '$candidate': $($_.Exception.Message)"
+        }
+    }
+
+    # Older build/deploy runs can leave DLL-only folders. Those broken entries
+    # confuse VSIXInstaller and can make the first Experimental launch disabled.
+    return (Test-Path -LiteralPath $assembly) -and
+        !(Test-Path -LiteralPath $manifest) -and
+        !(Test-Path -LiteralPath $vsixManifest)
+}
+
+function Remove-ExperimentalExtensionDirectories {
+    foreach ($hive in Get-ExperimentalHiveDirectories) {
+        $extensionsDir = Join-Path $hive.FullName "Extensions"
+        if (!(Test-Path -LiteralPath $extensionsDir)) {
+            continue
+        }
+
+        Get-ChildItem -LiteralPath $extensionsDir -Directory -Force |
+            Where-Object { Test-GhostTextExtensionDirectory -Directory $_ } |
+            ForEach-Object {
+                Write-Host "Removing stale Experimental extension directory: $($_.FullName)"
+                Remove-Item -LiteralPath $_.FullName -Recurse -Force
+            }
+    }
+}
+
+function Clear-ExperimentalExtensionCaches {
+    foreach ($hive in Get-ExperimentalHiveDirectories) {
+        $extensionsDir = Join-Path $hive.FullName "Extensions"
+        foreach ($stateFile in $extensionStateFiles) {
+            $path = Join-Path $extensionsDir $stateFile
+            if (Test-Path -LiteralPath $path) {
+                Write-Host "Removing Experimental extension state file: $path"
+                Remove-Item -LiteralPath $path -Force
+            }
+        }
+
+        $componentModelCache = Join-Path $hive.FullName "ComponentModelCache"
+        if (Test-Path -LiteralPath $componentModelCache) {
+            Write-Host "Removing Experimental ComponentModelCache: $componentModelCache"
+            Remove-Item -LiteralPath $componentModelCache -Recurse -Force
+        }
+
+        $definitionCache = Join-Path $hive.FullName "ExtensibilitySettings\DefinitionCache.dat"
+        if (Test-Path -LiteralPath $definitionCache) {
+            Write-Host "Removing Experimental extension definition cache: $definitionCache"
+            Remove-Item -LiteralPath $definitionCache -Force
+        }
+    }
+}
+
+function Reset-ExperimentalExtensionInstallState {
+    Write-Host "Clearing Experimental extension install state..." -ForegroundColor Yellow
+    Remove-ExperimentalExtensionDirectories
+    Clear-ExperimentalExtensionCaches
 }
 
 function Invoke-DevenvMaintenance {
@@ -139,6 +268,7 @@ function Install-VsixToExperimentalInstance {
 
     # VSIXInstaller can also trigger configuration changes. Make sure no empty Exp instance remains.
     Close-ExperimentalInstance "after uninstall"
+    Reset-ExperimentalExtensionInstallState
 
     Write-Host "Installing new extension to Experimental Instance..." -ForegroundColor Yellow
 
@@ -149,6 +279,7 @@ function Install-VsixToExperimentalInstance {
     }
 
     Close-ExperimentalInstance "after install"
+    Clear-ExperimentalExtensionCaches
 }
 
 function Launch-ExperimentalInstance {
@@ -181,41 +312,47 @@ Close-ExperimentalInstance "before deploy"
 
 Write-Host "Cleaning old build outputs..." -ForegroundColor Yellow
 
-Remove-Item "$root\src\GhostTextVsix\bin" -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item "$root\src\GhostTextVsix\obj" -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item $vsix -Force -ErrorAction SilentlyContinue
+Remove-PathIfExists "$root\src\GhostTextVsix\bin"
+Remove-PathIfExists "$root\src\GhostTextVsix\obj"
+Remove-PathIfExists $vsix
+
+$rebuildArguments = @(
+    $project,
+    "/restore",
+    "/t:Rebuild"
+) + $commonBuildProperties + @(
+    "/v:minimal"
+)
 
 Invoke-DotNetMsBuild `
     -Action "Building project..." `
-    -Arguments @(
-        $project,
-        "/restore",
-        "/t:Rebuild",
-        "/p:Configuration=Debug",
-        "/v:minimal"
-    )
+    -Arguments $rebuildArguments
+
+$pkgdefArguments = @(
+    $project,
+    "/t:GeneratePkgDef"
+) + $commonBuildProperties + @(
+    "/v:minimal"
+)
 
 Invoke-DotNetMsBuild `
     -Action "Generating pkgdef..." `
-    -Arguments @(
-        $project,
-        "/t:GeneratePkgDef",
-        "/p:Configuration=Debug",
-        "/v:minimal"
-    )
+    -Arguments $pkgdefArguments
 
 if (!(Test-Path $pkgdef)) {
     throw "pkgdef was not generated: $pkgdef"
 }
 
+$vsixArguments = @(
+    $project,
+    "/t:CreateVsixContainer"
+) + $commonBuildProperties + @(
+    "/v:minimal"
+)
+
 Invoke-DotNetMsBuild `
     -Action "Creating VSIX container..." `
-    -Arguments @(
-        $project,
-        "/t:CreateVsixContainer",
-        "/p:Configuration=Debug",
-        "/v:minimal"
-    )
+    -Arguments $vsixArguments
 
 if (!(Test-Path $vsix)) {
     throw "VSIX was not generated: $vsix"
