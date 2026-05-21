@@ -2,7 +2,9 @@
 
 ## Overview
 
-`re:code` is a local Visual Studio extension. When a completion provider is configured, the extension sends a limited portion of editor context to that provider to generate code completion candidates.
+`re:code` is a local Visual Studio extension. Network communication occurs only when a completion provider is configured and a completion feature is invoked or enabled.
+
+Automatic completion is disabled by default. No online completion request is sent when the provider or required API key is missing.
 
 ## Data Sent To Completion Providers
 
@@ -13,8 +15,11 @@ The extension may send the following data to the configured provider:
 - Prefix context before the caret
 - Suffix context after the caret
 - Provider name and model name selected by the user
+- Completion prompt needed for the request
 
 The extension does not intentionally send the entire solution or repository. It sends only the context window collected around the active caret position.
+
+The selected provider receives this data. The extension author's server does not receive it unless the user configures a provider endpoint controlled by the extension author.
 
 ## Excluded Paths
 
@@ -75,6 +80,8 @@ Do not use `re:code` on files that contain secrets, credentials, or regulated da
 
 ## Logging
 
+API keys are user-provided credentials for the selected provider. They must not be written to logs.
+
 The extension is designed not to log API keys, full prompts, full source code, or full provider responses.
 
 Diagnostic logging may include safe operational metadata such as:
@@ -86,6 +93,7 @@ Diagnostic logging may include safe operational metadata such as:
 - File name
 - Latency
 - Request URL host and path
+- Success or failure state
 
 ## Third-Party Providers
 

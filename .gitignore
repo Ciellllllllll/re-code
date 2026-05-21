@@ -15,4 +15,9 @@ obj/
 .artifacts/
 artifacts/
 *.vsix
+*.pfx
+*.p12
+*.snk
+*.key
+*.pem
 goal.md
