@@ -10,31 +10,31 @@ public sealed class DeepSeekOptionsPage : DialogPage
     private CompletionProviderType _autoCompletionProvider = CompletionProviderType.NotConfigured;
     private string _autoCompletionModel = string.Empty;
 
-    [Category("DeepSeek Compatibility")]
-    [DisplayName("API Key")]
-    [Description("DeepSeek API key. Leave empty to use the DEEPSEEK_API_KEY environment variable.")]
+    [Category("DeepSeek 互換設定")]
+    [DisplayName("API キー")]
+    [Description("DeepSeek API キー。空欄の場合は DEEPSEEK_API_KEY 環境変数を使用します。")]
     [DefaultValue("")]
     [PasswordPropertyText(true)]
     [Browsable(false)]
     public string ApiKey { get; set; } = string.Empty;
 
-    [Category("DeepSeek Compatibility")]
-    [DisplayName("Endpoint")]
-    [Description("OpenAI-compatible DeepSeek chat completions endpoint.")]
+    [Category("DeepSeek 互換設定")]
+    [DisplayName("エンドポイント")]
+    [Description("OpenAI 互換の DeepSeek chat completions エンドポイント。")]
     [DefaultValue("https://api.deepseek.com/chat/completions")]
     [Browsable(false)]
     public string Endpoint { get; set; } = "https://api.deepseek.com/chat/completions";
 
-    [Category("Manual Completion")]
-    [DisplayName("Manual Timeout Seconds")]
-    [Description("Request timeout in seconds for manual completion.")]
+    [Category("手動補完")]
+    [DisplayName("手動補完タイムアウト秒数")]
+    [Description("手動補完リクエストのタイムアウト秒数。")]
     [DefaultValue(20)]
     [Browsable(false)]
     public int TimeoutSeconds { get; set; } = 20;
 
-    [Category("Providers")]
-    [DisplayName("Auto Provider")]
-    [Description("Completion provider for automatic completion.")]
+    [Category("プロバイダー")]
+    [DisplayName("自動補完プロバイダー")]
+    [Description("自動補完で使用する補完プロバイダー。")]
     [DefaultValue(CompletionProviderType.NotConfigured)]
     [RefreshProperties(RefreshProperties.All)]
     [PropertyOrder(10)]
@@ -48,9 +48,9 @@ public sealed class DeepSeekOptionsPage : DialogPage
         }
     }
 
-    [Category("Providers")]
-    [DisplayName("Auto Model")]
-    [Description("Model name used for automatic completion.")]
+    [Category("プロバイダー")]
+    [DisplayName("自動補完モデル")]
+    [Description("自動補完で使用するモデル名。")]
     [DefaultValue("")]
     [TypeConverter(typeof(CompletionModelTypeConverter))]
     [PropertyOrder(20)]
@@ -60,167 +60,167 @@ public sealed class DeepSeekOptionsPage : DialogPage
         set => _autoCompletionModel = value ?? string.Empty;
     }
 
-    [Category("Providers")]
-    [DisplayName("Auto Base Url")]
-    [Description("OpenAI-compatible chat completions endpoint for automatic completion. Empty uses the selected provider default.")]
+    [Category("プロバイダー")]
+    [DisplayName("自動補完ベース URL")]
+    [Description("自動補完で使用する OpenAI 互換 chat completions エンドポイント。空欄の場合は選択中プロバイダーの既定値を使用します。")]
     [DefaultValue("")]
     [Browsable(false)]
     public string AutoCompletionBaseUrl { get; set; } = string.Empty;
 
-    [Category("Providers")]
-    [DisplayName("Auto API Key")]
-    [Description("Provider API key for automatic completion.")]
+    [Category("プロバイダー")]
+    [DisplayName("自動補完 API キー")]
+    [Description("自動補完で使用するプロバイダー API キー。")]
     [DefaultValue("")]
     [PasswordPropertyText(true)]
     [PropertyOrder(30)]
     public string AutoCompletionApiKey { get; set; } = string.Empty;
 
-    [Category("Providers")]
-    [DisplayName("Manual Provider")]
-    [Description("Completion provider for manual completion.")]
+    [Category("プロバイダー")]
+    [DisplayName("手動補完プロバイダー")]
+    [Description("手動補完で使用する補完プロバイダー。")]
     [DefaultValue(CompletionProviderType.NotConfigured)]
     [Browsable(false)]
     public CompletionProviderType ManualCompletionProvider { get; set; } = CompletionProviderType.NotConfigured;
 
-    [Category("Providers")]
-    [DisplayName("Manual Model")]
-    [Description("Model name used for manual completion.")]
+    [Category("プロバイダー")]
+    [DisplayName("手動補完モデル")]
+    [Description("手動補完で使用するモデル名。")]
     [DefaultValue("")]
     [Browsable(false)]
     public string ManualCompletionModel { get; set; } = string.Empty;
 
-    [Category("Providers")]
-    [DisplayName("Manual Base Url")]
-    [Description("OpenAI-compatible chat completions endpoint for manual completion. Empty uses the selected provider default.")]
+    [Category("プロバイダー")]
+    [DisplayName("手動補完ベース URL")]
+    [Description("手動補完で使用する OpenAI 互換 chat completions エンドポイント。空欄の場合は選択中プロバイダーの既定値を使用します。")]
     [DefaultValue("")]
     [Browsable(false)]
     public string ManualCompletionBaseUrl { get; set; } = string.Empty;
 
-    [Category("Providers")]
-    [DisplayName("Manual API Key")]
-    [Description("Provider API key for manual completion.")]
+    [Category("プロバイダー")]
+    [DisplayName("手動補完 API キー")]
+    [Description("手動補完で使用するプロバイダー API キー。")]
     [DefaultValue("")]
     [PasswordPropertyText(true)]
     [Browsable(false)]
     public string ManualCompletionApiKey { get; set; } = string.Empty;
 
-    [Category("Providers")]
-    [DisplayName("OpenRouter API Key")]
-    [Description("OpenRouter API key. Leave empty to use OPENROUTER_API_KEY.")]
+    [Category("プロバイダー")]
+    [DisplayName("OpenRouter API キー")]
+    [Description("OpenRouter API キー。空欄の場合は OPENROUTER_API_KEY 環境変数を使用します。")]
     [DefaultValue("")]
     [PasswordPropertyText(true)]
     [Browsable(false)]
     public string OpenRouterApiKey { get; set; } = string.Empty;
 
-    [Category("Providers")]
-    [DisplayName("OpenAI-compatible API Key")]
-    [Description("Generic OpenAI-compatible API key.")]
+    [Category("プロバイダー")]
+    [DisplayName("OpenAI 互換 API キー")]
+    [Description("汎用 OpenAI 互換プロバイダーの API キー。")]
     [DefaultValue("")]
     [PasswordPropertyText(true)]
     [Browsable(false)]
     public string OpenAICompatibleApiKey { get; set; } = string.Empty;
 
-    [Category("Providers")]
-    [DisplayName("Local Base Url")]
-    [Description("Local OpenAI-compatible chat completions endpoint.")]
+    [Category("プロバイダー")]
+    [DisplayName("ローカルベース URL")]
+    [Description("ローカル OpenAI 互換 chat completions エンドポイント。")]
     [DefaultValue("http://localhost:1234/v1/chat/completions")]
     [Browsable(false)]
     public string LocalBaseUrl { get; set; } = "http://localhost:1234/v1/chat/completions";
 
-    [Category("Completion")]
-    [DisplayName("Enable Auto Completion")]
-    [Description("Automatically request a completion after typing stops in supported C/C++ files.")]
+    [Category("補完")]
+    [DisplayName("自動補完を有効化")]
+    [Description("対応する C/C++ ファイルで入力停止後に自動で補完をリクエストします。")]
     [DefaultValue(true)]
     [PropertyOrder(100)]
     public bool EnableAutoCompletion { get; set; } = true;
 
-    [Category("Completion")]
-    [DisplayName("Debounce Time Milliseconds")]
-    [Description("Delay after the last typed character before automatic completion starts.")]
+    [Category("補完")]
+    [DisplayName("デバウンス時間ミリ秒")]
+    [Description("最後の入力から自動補完を開始するまでの待機時間。")]
     [DefaultValue(500)]
     [PropertyOrder(110)]
     public int DebounceMilliseconds { get; set; } = 500;
 
-    [Category("Completion")]
-    [DisplayName("Cache TTL Seconds")]
-    [Description("How long formatted completions are reused for the same editor context.")]
+    [Category("補完")]
+    [DisplayName("キャッシュ保持秒数")]
+    [Description("同じエディターコンテキストで整形済み補完を再利用する時間。")]
     [DefaultValue(30)]
     [PropertyOrder(120)]
     public int CacheTtlSeconds { get; set; } = 30;
 
-    [Category("Manual Completion")]
-    [DisplayName("Manual Prefix Lines")]
-    [Description("Maximum number of lines before the cursor for manual completion.")]
+    [Category("手動補完")]
+    [DisplayName("手動補完プレフィックス行数")]
+    [Description("手動補完でカーソル前から収集する最大行数。")]
     [DefaultValue(120)]
     [Browsable(false)]
     public int MaxPrefixLines { get; set; } = 120;
 
-    [Category("Manual Completion")]
-    [DisplayName("Manual Suffix Lines")]
-    [Description("Maximum number of lines after the cursor for manual completion.")]
+    [Category("手動補完")]
+    [DisplayName("手動補完サフィックス行数")]
+    [Description("手動補完でカーソル後から収集する最大行数。")]
     [DefaultValue(60)]
     [Browsable(false)]
     public int MaxSuffixLines { get; set; } = 60;
 
-    [Category("Auto Completion")]
-    [DisplayName("Auto Prefix Lines")]
-    [Description("Maximum number of lines before the cursor for automatic completion.")]
+    [Category("自動補完")]
+    [DisplayName("自動補完プレフィックス行数")]
+    [Description("自動補完でカーソル前から収集する最大行数。")]
     [DefaultValue(40)]
     [Browsable(false)]
     public int AutoMaxPrefixLines { get; set; } = 40;
 
-    [Category("Auto Completion")]
-    [DisplayName("Auto Suffix Lines")]
-    [Description("Maximum number of lines after the cursor for automatic completion.")]
+    [Category("自動補完")]
+    [DisplayName("自動補完サフィックス行数")]
+    [Description("自動補完でカーソル後から収集する最大行数。")]
     [DefaultValue(10)]
     [Browsable(false)]
     public int AutoMaxSuffixLines { get; set; } = 10;
 
-    [Category("Auto Completion")]
-    [DisplayName("Auto Max Completion Lines")]
-    [Description("Maximum number of completion lines shown for automatic completion.")]
+    [Category("自動補完")]
+    [DisplayName("自動補完最大表示行数")]
+    [Description("自動補完で表示する補完候補の最大行数。")]
     [DefaultValue(3)]
     [Browsable(false)]
     public int AutoMaxCompletionLines { get; set; } = 3;
 
-    [Category("Auto Completion")]
-    [DisplayName("Auto Max Completion Characters")]
-    [Description("Maximum number of completion characters shown for automatic completion.")]
+    [Category("自動補完")]
+    [DisplayName("自動補完最大表示文字数")]
+    [Description("自動補完で表示する補完候補の最大文字数。")]
     [DefaultValue(300)]
     [Browsable(false)]
     public int AutoMaxCompletionCharacters { get; set; } = 300;
 
-    [Category("Auto Completion")]
-    [DisplayName("Auto Timeout Milliseconds")]
-    [Description("Request timeout for automatic completion.")]
+    [Category("自動補完")]
+    [DisplayName("自動補完タイムアウトミリ秒")]
+    [Description("自動補完リクエストのタイムアウト。")]
     [DefaultValue(2000)]
     [Browsable(false)]
     public int AutoTimeoutMilliseconds { get; set; } = 2000;
 
-    [Category("Auto Completion")]
-    [DisplayName("Auto Max Tokens")]
-    [Description("Provider max_tokens value for automatic completion.")]
+    [Category("自動補完")]
+    [DisplayName("自動補完最大トークン数")]
+    [Description("自動補完でプロバイダーへ送信する max_tokens の値。")]
     [DefaultValue(128)]
     [PropertyOrder(130)]
     public int AutoMaxTokens { get; set; } = 128;
 
-    [Category("Auto Completion")]
-    [DisplayName("Auto Temperature")]
-    [Description("Provider temperature value for automatic completion.")]
+    [Category("自動補完")]
+    [DisplayName("自動補完 Temperature")]
+    [Description("自動補完でプロバイダーへ送信する temperature の値。")]
     [DefaultValue(0.1)]
     [Browsable(false)]
     public double AutoTemperature { get; set; } = 0.1;
 
-    [Category("Manual Completion")]
-    [DisplayName("Manual Max Tokens")]
-    [Description("Provider max_tokens value for manual completion. Use 0 to omit the setting.")]
+    [Category("手動補完")]
+    [DisplayName("手動補完最大トークン数")]
+    [Description("手動補完でプロバイダーへ送信する max_tokens の値。0 の場合は送信しません。")]
     [DefaultValue(0)]
     [Browsable(false)]
     public int ManualMaxTokens { get; set; } = 0;
 
-    [Category("Manual Completion")]
-    [DisplayName("Manual Temperature")]
-    [Description("Provider temperature value for manual completion.")]
+    [Category("手動補完")]
+    [DisplayName("手動補完 Temperature")]
+    [Description("手動補完でプロバイダーへ送信する temperature の値。")]
     [DefaultValue(0.2)]
     [Browsable(false)]
     public double ManualTemperature { get; set; } = 0.2;

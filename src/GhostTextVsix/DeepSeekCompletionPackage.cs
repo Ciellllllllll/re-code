@@ -18,8 +18,8 @@ using Microsoft.VisualStudio.TextManager.Interop;
 namespace GhostTextVsix;
 
 [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
-[InstalledProductRegistration("re:code", "C/C++ ghost text completion", "0.2")]
-[ProvideOptionPage(typeof(DeepSeekOptionsPage), "re:code", "General", 0, 0, true)]
+[InstalledProductRegistration("re:code", "C/C++ GhostText 補完", "0.2")]
+[ProvideOptionPage(typeof(DeepSeekOptionsPage), "re:code", "一般", 0, 0, true)]
 [ProvideAutoLoad(UIContextGuids80.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
 [Guid(Guids.PackageString)]
 public sealed class DeepSeekCompletionPackage : AsyncPackage

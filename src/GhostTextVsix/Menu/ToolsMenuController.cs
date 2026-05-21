@@ -57,19 +57,19 @@ internal sealed class ToolsMenuController : IDisposable
             true);
         _rootPopup.Caption = RootCaption;
 
-        AddButton("Generate Completion", async () => await _completionCoordinator.RequestManualCompletionAsync());
-        AddButton("Toggle Auto Completion", () =>
+        AddButton("補完を生成", async () => await _completionCoordinator.RequestManualCompletionAsync());
+        AddButton("自動補完を切り替え", () =>
         {
             var enabled = !_settingsManager.IsAutoCompletionEnabled();
             _settingsManager.SetAutoCompletionEnabled(enabled);
             _logger.Info($"Auto completion {(enabled ? "enabled" : "disabled")}.");
         });
-        AddButton("Open Settings", () =>
+        AddButton("設定を開く", () =>
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             _package.ShowOptionPage(typeof(DeepSeekOptionsPage));
         });
-        AddButton("Show Diagnostics", () =>
+        AddButton("診断を表示", () =>
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             _diagnosticsController.ShowDiagnostics();
