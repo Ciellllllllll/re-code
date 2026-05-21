@@ -4,8 +4,12 @@ using Microsoft.VisualStudio.Shell;
 
 namespace GhostTextVsix.Settings;
 
+[TypeConverter(typeof(DeepSeekOptionsPageTypeConverter))]
 public sealed class DeepSeekOptionsPage : DialogPage
 {
+    private CompletionProviderType _autoCompletionProvider = CompletionProviderType.NotConfigured;
+    private string _autoCompletionModel = string.Empty;
+
     [Category("DeepSeek Compatibility")]
     [DisplayName("API Key")]
     [Description("DeepSeek API key. Leave empty to use the DEEPSEEK_API_KEY environment variable.")]
@@ -32,13 +36,29 @@ public sealed class DeepSeekOptionsPage : DialogPage
     [DisplayName("Auto Provider")]
     [Description("Completion provider for automatic completion.")]
     [DefaultValue(CompletionProviderType.NotConfigured)]
-    public CompletionProviderType AutoCompletionProvider { get; set; } = CompletionProviderType.NotConfigured;
+    [RefreshProperties(RefreshProperties.All)]
+    [PropertyOrder(10)]
+    public CompletionProviderType AutoCompletionProvider
+    {
+        get => _autoCompletionProvider;
+        set
+        {
+            _autoCompletionProvider = value;
+            _autoCompletionModel = ProviderRegistry.ResolveModelNameForProviderChange(value, _autoCompletionModel);
+        }
+    }
 
     [Category("Providers")]
     [DisplayName("Auto Model")]
     [Description("Model name used for automatic completion.")]
     [DefaultValue("")]
-    public string AutoCompletionModel { get; set; } = string.Empty;
+    [TypeConverter(typeof(CompletionModelTypeConverter))]
+    [PropertyOrder(20)]
+    public string AutoCompletionModel
+    {
+        get => _autoCompletionModel;
+        set => _autoCompletionModel = value ?? string.Empty;
+    }
 
     [Category("Providers")]
     [DisplayName("Auto Base Url")]
@@ -52,18 +72,21 @@ public sealed class DeepSeekOptionsPage : DialogPage
     [Description("Provider API key for automatic completion.")]
     [DefaultValue("")]
     [PasswordPropertyText(true)]
+    [PropertyOrder(30)]
     public string AutoCompletionApiKey { get; set; } = string.Empty;
 
     [Category("Providers")]
     [DisplayName("Manual Provider")]
     [Description("Completion provider for manual completion.")]
     [DefaultValue(CompletionProviderType.NotConfigured)]
+    [Browsable(false)]
     public CompletionProviderType ManualCompletionProvider { get; set; } = CompletionProviderType.NotConfigured;
 
     [Category("Providers")]
     [DisplayName("Manual Model")]
     [Description("Model name used for manual completion.")]
     [DefaultValue("")]
+    [Browsable(false)]
     public string ManualCompletionModel { get; set; } = string.Empty;
 
     [Category("Providers")]
@@ -78,6 +101,7 @@ public sealed class DeepSeekOptionsPage : DialogPage
     [Description("Provider API key for manual completion.")]
     [DefaultValue("")]
     [PasswordPropertyText(true)]
+    [Browsable(false)]
     public string ManualCompletionApiKey { get; set; } = string.Empty;
 
     [Category("Providers")]
@@ -107,18 +131,21 @@ public sealed class DeepSeekOptionsPage : DialogPage
     [DisplayName("Enable Auto Completion")]
     [Description("Automatically request a completion after typing stops in supported C/C++ files.")]
     [DefaultValue(true)]
+    [PropertyOrder(100)]
     public bool EnableAutoCompletion { get; set; } = true;
 
     [Category("Completion")]
     [DisplayName("Debounce Time Milliseconds")]
     [Description("Delay after the last typed character before automatic completion starts.")]
     [DefaultValue(500)]
+    [PropertyOrder(110)]
     public int DebounceMilliseconds { get; set; } = 500;
 
     [Category("Completion")]
     [DisplayName("Cache TTL Seconds")]
     [Description("How long formatted completions are reused for the same editor context.")]
     [DefaultValue(30)]
+    [PropertyOrder(120)]
     public int CacheTtlSeconds { get; set; } = 30;
 
     [Category("Manual Completion")]
@@ -174,6 +201,7 @@ public sealed class DeepSeekOptionsPage : DialogPage
     [DisplayName("Auto Max Tokens")]
     [Description("Provider max_tokens value for automatic completion.")]
     [DefaultValue(128)]
+    [PropertyOrder(130)]
     public int AutoMaxTokens { get; set; } = 128;
 
     [Category("Auto Completion")]
@@ -187,6 +215,7 @@ public sealed class DeepSeekOptionsPage : DialogPage
     [DisplayName("Manual Max Tokens")]
     [Description("Provider max_tokens value for manual completion. Use 0 to omit the setting.")]
     [DefaultValue(0)]
+    [Browsable(false)]
     public int ManualMaxTokens { get; set; } = 0;
 
     [Category("Manual Completion")]

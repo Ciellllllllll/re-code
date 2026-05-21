@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace GhostTextVsix.Completion.Providers;
 
@@ -26,6 +27,8 @@ internal static class ProviderRegistry
                 ProviderType = CompletionProviderType.DeepSeek,
                 DisplayName = "DeepSeek",
                 DefaultModelName = "deepseek-v4-flash",
+                ModelNames = new[] { "deepseek-v4-flash" },
+                AllowCustomModelName = false,
                 RequestUrl = "https://api.deepseek.com/chat/completions",
                 EndpointKind = ProviderEndpointKind.ChatCompletions,
                 SupportsChatCompletions = true,
@@ -38,7 +41,9 @@ internal static class ProviderRegistry
             {
                 ProviderType = CompletionProviderType.OpenRouter,
                 DisplayName = "OpenRouter",
-                DefaultModelName = string.Empty,
+                DefaultModelName = "openrouter/auto",
+                ModelNames = new[] { "openrouter/auto" },
+                AllowCustomModelName = true,
                 RequestUrl = "https://openrouter.ai/api/v1/chat/completions",
                 EndpointKind = ProviderEndpointKind.ChatCompletions,
                 SupportsChatCompletions = true,
@@ -50,8 +55,20 @@ internal static class ProviderRegistry
             [CompletionProviderType.Codestral] = Unsupported(CompletionProviderType.Codestral, "Codestral"),
             [CompletionProviderType.Gemini] = Unsupported(CompletionProviderType.Gemini, "Gemini"),
             [CompletionProviderType.Groq] = Unsupported(CompletionProviderType.Groq, "Groq"),
-            [CompletionProviderType.OpenAICompatible] = Unsupported(CompletionProviderType.OpenAICompatible, "OpenAICompatible"),
-            [CompletionProviderType.LocalOpenAICompatible] = Unsupported(CompletionProviderType.LocalOpenAICompatible, "LocalOpenAICompatible", isLocal: true, requiresApiKey: false)
+            [CompletionProviderType.OpenAICompatible] = Unsupported(
+                CompletionProviderType.OpenAICompatible,
+                "OpenAICompatible",
+                defaultModelName: "gpt-4o-mini",
+                modelNames: new[] { "gpt-4o-mini" },
+                allowCustomModelName: true),
+            [CompletionProviderType.LocalOpenAICompatible] = Unsupported(
+                CompletionProviderType.LocalOpenAICompatible,
+                "LocalOpenAICompatible",
+                isLocal: true,
+                requiresApiKey: false,
+                defaultModelName: "local-model",
+                modelNames: new[] { "local-model" },
+                allowCustomModelName: true)
         };
 
     public static ProviderDefinition Get(CompletionProviderType providerType)
@@ -61,17 +78,91 @@ internal static class ProviderRegistry
             : Unsupported(providerType, providerType.ToString());
     }
 
+    public static IReadOnlyList<string> GetModelCandidates(CompletionProviderType providerType)
+    {
+        var definition = Get(providerType);
+        if (definition.ModelNames?.Length > 0)
+        {
+            return definition.ModelNames;
+        }
+
+        return string.IsNullOrWhiteSpace(definition.DefaultModelName)
+            ? Array.Empty<string>()
+            : new[] { definition.DefaultModelName };
+    }
+
+    public static string ResolveModelName(CompletionProviderType providerType, string configuredModel)
+    {
+        var definition = Get(providerType);
+        if (providerType == CompletionProviderType.NotConfigured)
+        {
+            return string.Empty;
+        }
+
+        var modelName = (configuredModel ?? string.Empty).Trim();
+        var candidates = GetModelCandidates(providerType)
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate))
+            .ToArray();
+
+        if (!string.IsNullOrWhiteSpace(modelName))
+        {
+            if (definition.AllowCustomModelName ||
+                candidates.Any(candidate => string.Equals(candidate, modelName, StringComparison.OrdinalIgnoreCase)))
+            {
+                return modelName;
+            }
+        }
+
+        if (candidates.Length > 0)
+        {
+            return candidates[0];
+        }
+
+        return definition.AllowCustomModelName ? modelName : string.Empty;
+    }
+
+    public static string ResolveModelNameForProviderChange(CompletionProviderType providerType, string configuredModel)
+    {
+        if (providerType == CompletionProviderType.NotConfigured)
+        {
+            return string.Empty;
+        }
+
+        var modelName = (configuredModel ?? string.Empty).Trim();
+        var candidates = GetModelCandidates(providerType)
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate))
+            .ToArray();
+
+        if (!string.IsNullOrWhiteSpace(modelName) &&
+            candidates.Any(candidate => string.Equals(candidate, modelName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return modelName;
+        }
+
+        if (candidates.Length > 0)
+        {
+            return candidates[0];
+        }
+
+        return Get(providerType).AllowCustomModelName ? modelName : string.Empty;
+    }
+
     private static ProviderDefinition Unsupported(
         CompletionProviderType providerType,
         string displayName,
         bool isLocal = false,
-        bool requiresApiKey = true)
+        bool requiresApiKey = true,
+        string defaultModelName = "",
+        string[] modelNames = null,
+        bool allowCustomModelName = false)
     {
         return new ProviderDefinition
         {
             ProviderType = providerType,
             DisplayName = displayName,
-            DefaultModelName = string.Empty,
+            DefaultModelName = defaultModelName ?? string.Empty,
+            ModelNames = modelNames ?? Array.Empty<string>(),
+            AllowCustomModelName = allowCustomModelName,
             RequestUrl = string.Empty,
             EndpointKind = ProviderEndpointKind.None,
             SupportsChatCompletions = false,

@@ -352,7 +352,7 @@ internal sealed class CompletionCoordinator
         return new CompletionExecutionOptions
         {
             Source = "Manual",
-            ProviderConfig = _settingsManager.GetManualProviderConfig(),
+            ProviderConfig = _settingsManager.GetProviderConfig(),
             MaxPrefixLines = Math.Max(1, options.MaxPrefixLines),
             MaxSuffixLines = Math.Max(0, options.MaxSuffixLines),
             MaxCompletionLines = 12,

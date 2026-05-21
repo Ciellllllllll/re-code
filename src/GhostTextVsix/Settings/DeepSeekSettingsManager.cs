@@ -38,34 +38,23 @@ internal sealed class DeepSeekSettingsManager
         return ClampTemperature(temperature);
     }
 
-    public double GetManualTemperature() => ClampTemperature(GetOptions().ManualTemperature);
-
-    public int GetManualMaxTokens() => Math.Max(0, Math.Min(4096, GetOptions().ManualMaxTokens));
-
     public CompletionProviderConfig GetAutoProviderConfig()
+    {
+        return GetProviderConfig();
+    }
+
+    public CompletionProviderConfig GetProviderConfig()
     {
         var options = GetOptions();
         var providerType = options.AutoCompletionProvider;
+        var modelName = ProviderRegistry.ResolveModelName(providerType, options.AutoCompletionModel);
         return BuildProviderConfig(
             providerType,
-            options.AutoCompletionModel,
+            modelName,
             options.AutoCompletionApiKey,
             GetAutoMaxTokens(),
             GetAutoTemperature(),
             GetAutoTimeout());
-    }
-
-    public CompletionProviderConfig GetManualProviderConfig()
-    {
-        var options = GetOptions();
-        var providerType = options.ManualCompletionProvider;
-        return BuildProviderConfig(
-            providerType,
-            options.ManualCompletionModel,
-            options.ManualCompletionApiKey,
-            GetManualMaxTokens(),
-            GetManualTemperature(),
-            GetTimeout());
     }
 
     public void SetAutoCompletionEnabled(bool enabled)
@@ -90,7 +79,7 @@ internal sealed class DeepSeekSettingsManager
             ProviderName = definition.DisplayName,
             BaseUrl = definition.RequestUrl,
             ApiKey = ResolveApiKey(providerType, apiKey),
-            ModelName = ResolveModelName(definition, modelName),
+            ModelName = ProviderRegistry.ResolveModelName(providerType, modelName),
             MaxTokens = maxTokens,
             Temperature = temperature,
             Timeout = timeout,
@@ -124,16 +113,6 @@ internal sealed class DeepSeekSettingsManager
         }
     }
 
-    private static string ResolveModelName(ProviderDefinition definition, string configuredModel)
-    {
-        if (!string.IsNullOrWhiteSpace(configuredModel))
-        {
-            return configuredModel.Trim();
-        }
-
-        return definition.DefaultModelName;
-    }
-
     private void MigrateLegacyApiKeys(DeepSeekOptionsPage options)
     {
         if (_legacyApiKeyMigrationAttempted)
@@ -145,7 +124,8 @@ internal sealed class DeepSeekSettingsManager
         var legacyApiKey = FirstConfiguredKey(
             options.ApiKey,
             options.OpenRouterApiKey,
-            options.OpenAICompatibleApiKey);
+            options.OpenAICompatibleApiKey,
+            options.ManualCompletionApiKey);
         if (string.IsNullOrWhiteSpace(legacyApiKey))
         {
             return;
@@ -155,12 +135,6 @@ internal sealed class DeepSeekSettingsManager
         if (string.IsNullOrWhiteSpace(options.AutoCompletionApiKey))
         {
             options.AutoCompletionApiKey = legacyApiKey;
-            changed = true;
-        }
-
-        if (string.IsNullOrWhiteSpace(options.ManualCompletionApiKey))
-        {
-            options.ManualCompletionApiKey = legacyApiKey;
             changed = true;
         }
 

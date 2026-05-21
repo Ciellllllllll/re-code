@@ -8,6 +8,10 @@ internal sealed class ProviderDefinition
 
     public string DefaultModelName { get; set; }
 
+    public string[] ModelNames { get; set; } = System.Array.Empty<string>();
+
+    public bool AllowCustomModelName { get; set; }
+
     public string RequestUrl { get; set; }
 
     public ProviderEndpointKind EndpointKind { get; set; }

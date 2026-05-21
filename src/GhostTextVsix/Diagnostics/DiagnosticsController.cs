@@ -21,9 +21,8 @@ internal sealed class DiagnosticsController
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         _logger.Activate();
-        var autoProvider = _settingsManager.GetAutoProviderConfig();
-        var manualProvider = _settingsManager.GetManualProviderConfig();
-        _logger.Info($"AutoProvider={autoProvider.ProviderName}, AutoProviderConfigured={autoProvider.IsConfigured}, AutoApiKeyConfigured={IsApiKeyConfigured(autoProvider)}, AutoModel={autoProvider.ModelName}, ManualProvider={manualProvider.ProviderName}, ManualProviderConfigured={manualProvider.IsConfigured}, ManualApiKeyConfigured={IsApiKeyConfigured(manualProvider)}, ManualModel={manualProvider.ModelName}, EnableAutoCompletion={_settingsManager.IsAutoCompletionEnabled()}, State={_coordinator.State}");
+        var provider = _settingsManager.GetProviderConfig();
+        _logger.Info($"Provider={provider.ProviderName}, ProviderConfigured={provider.IsConfigured}, ApiKeyConfigured={IsApiKeyConfigured(provider)}, Model={provider.ModelName}, EnableAutoCompletion={_settingsManager.IsAutoCompletionEnabled()}, State={_coordinator.State}");
     }
 
     private static bool IsApiKeyConfigured(Completion.Providers.CompletionProviderConfig config)
