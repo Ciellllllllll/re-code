@@ -5,7 +5,6 @@ using System.Net.Http.Headers;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using GhostTextVsix.Diagnostics;
@@ -90,7 +89,7 @@ internal class OpenAICompatibleCompletionProvider : ICompletionProvider
                 return response;
             }
 
-            var parsed = ParseCompletionResponse(content);
+            var parsed = ChatCompletionResponseParser.Parse(content);
             _logger.Info($"Provider response parsed. ProviderName={ProviderName}, ModelName={request.ModelName}, RequestId={request.RequestId}, Source={request.Source}, CompletionMode={request.CompletionMode}, HasChoices={parsed.HasChoices}, ChoicesCount={parsed.ChoicesCount}, HasMessage={parsed.HasMessage}, HasContent={parsed.HasContent}, ContentLength={parsed.ContentLength}, HasReasoningContent={parsed.HasReasoningContent}, ReasoningContentLength={parsed.ReasoningContentLength}, FinishReason={parsed.FinishReason}, HasErrorObject={parsed.HasErrorObject}, ErrorType={parsed.ErrorType}, ErrorCode={parsed.ErrorCode}, ErrorMessageSummary={parsed.ErrorMessageSummary}");
 
             if (parsed.HasErrorObject)
@@ -184,100 +183,6 @@ internal class OpenAICompatibleCompletionProvider : ICompletionProvider
         return Encoding.UTF8.GetString(stream.ToArray());
     }
 
-    private static CompletionParseResult ParseCompletionResponse(string json)
-    {
-        var result = new CompletionParseResult();
-        using var document = JsonDocument.Parse(json);
-        var root = document.RootElement;
-
-        if (TryGetProperty(root, "error", out var error) && error.ValueKind == JsonValueKind.Object)
-        {
-            result.HasErrorObject = true;
-            result.ErrorType = GetStringProperty(error, "type");
-            result.ErrorCode = GetStringProperty(error, "code");
-            result.ErrorMessageSummary = Summarize(GetStringProperty(error, "message"));
-        }
-
-        if (!TryGetProperty(root, "choices", out var choices) || choices.ValueKind != JsonValueKind.Array)
-        {
-            return result;
-        }
-
-        result.HasChoices = true;
-        result.ChoicesCount = choices.GetArrayLength();
-        if (result.ChoicesCount == 0)
-        {
-            return result;
-        }
-
-        var firstChoice = choices[0];
-        result.FinishReason = GetStringProperty(firstChoice, "finish_reason");
-
-        if (!TryGetProperty(firstChoice, "message", out var message) || message.ValueKind != JsonValueKind.Object)
-        {
-            return result;
-        }
-
-        result.HasMessage = true;
-        var content = GetStringProperty(message, "content");
-        result.Text = content;
-        result.HasContent = !string.IsNullOrWhiteSpace(content);
-        result.ContentLength = content?.Length ?? 0;
-        var reasoningContent = GetStringProperty(message, "reasoning_content");
-        result.HasReasoningContent = !string.IsNullOrWhiteSpace(reasoningContent);
-        result.ReasoningContentLength = reasoningContent?.Length ?? 0;
-        return result;
-    }
-
-    private static bool TryGetProperty(JsonElement element, string name, out JsonElement value)
-    {
-        if (element.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var property in element.EnumerateObject())
-            {
-                if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
-                {
-                    value = property.Value;
-                    return true;
-                }
-            }
-        }
-
-        value = default;
-        return false;
-    }
-
-    private static string GetStringProperty(JsonElement element, string name)
-    {
-        if (!TryGetProperty(element, name, out var value))
-        {
-            return string.Empty;
-        }
-
-        switch (value.ValueKind)
-        {
-            case JsonValueKind.String:
-                return value.GetString() ?? string.Empty;
-            case JsonValueKind.Number:
-            case JsonValueKind.True:
-            case JsonValueKind.False:
-                return value.ToString();
-            default:
-                return string.Empty;
-        }
-    }
-
-    private static string Summarize(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return string.Empty;
-        }
-
-        var singleLine = message.Replace("\r", " ").Replace("\n", " ").Trim();
-        return singleLine.Length <= 120 ? singleLine : singleLine.Substring(0, 120);
-    }
-
     [DataContract]
     protected sealed class ChatCompletionRequest
     {
@@ -325,34 +230,5 @@ internal class OpenAICompatibleCompletionProvider : ICompletionProvider
     {
         [DataMember(Name = "type")]
         public string Type { get; set; }
-    }
-
-    private sealed class CompletionParseResult
-    {
-        public string Text { get; set; }
-
-        public bool HasChoices { get; set; }
-
-        public int ChoicesCount { get; set; }
-
-        public bool HasMessage { get; set; }
-
-        public bool HasContent { get; set; }
-
-        public int ContentLength { get; set; }
-
-        public bool HasReasoningContent { get; set; }
-
-        public int ReasoningContentLength { get; set; }
-
-        public string FinishReason { get; set; } = string.Empty;
-
-        public bool HasErrorObject { get; set; }
-
-        public string ErrorType { get; set; } = string.Empty;
-
-        public string ErrorCode { get; set; } = string.Empty;
-
-        public string ErrorMessageSummary { get; set; } = string.Empty;
     }
 }

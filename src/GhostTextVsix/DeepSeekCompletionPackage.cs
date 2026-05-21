@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -85,7 +84,7 @@ public sealed class DeepSeekCompletionPackage : AsyncPackage
         _disposed = true;
         if (disposing)
         {
-            SafeLogDisposeInfo("Package dispose started.");
+            SafeLog.Info(_logger, "Package dispose started.");
             try
             {
                 ThreadHelper.JoinableTaskFactory.Run(async delegate
@@ -95,27 +94,19 @@ public sealed class DeepSeekCompletionPackage : AsyncPackage
                     SafeDisposeComponent("EditorEventMonitor", () => _editorEventMonitor?.Dispose());
                 });
             }
-            catch (ObjectDisposedException ex)
+            catch (Exception ex) when (SafeLog.IsExpectedDisposeException(ex))
             {
-                SafeLogDisposeWarning("Package dispose ignored ObjectDisposedException", ex);
-            }
-            catch (COMException ex)
-            {
-                SafeLogDisposeWarning("Package dispose ignored COMException", ex);
-            }
-            catch (InvalidOperationException ex)
-            {
-                SafeLogDisposeWarning("Package dispose ignored InvalidOperationException", ex);
+                SafeLog.Warning(_logger, $"Package dispose ignored {ex.GetType().Name}", ex);
             }
             catch (Exception ex)
             {
-                SafeLogDisposeWarning("Package dispose ignored exception", ex);
+                SafeLog.Warning(_logger, "Package dispose ignored exception", ex);
             }
             finally
             {
                 _toolsMenuController = null;
                 _editorEventMonitor = null;
-                SafeLogDisposeInfo("Package dispose completed.");
+                SafeLog.Info(_logger, "Package dispose completed.");
             }
         }
 
@@ -128,46 +119,13 @@ public sealed class DeepSeekCompletionPackage : AsyncPackage
         {
             disposeAction();
         }
-        catch (ObjectDisposedException ex)
+        catch (Exception ex) when (SafeLog.IsExpectedDisposeException(ex))
         {
-            SafeLogDisposeWarning($"{name} dispose ignored ObjectDisposedException", ex);
-        }
-        catch (COMException ex)
-        {
-            SafeLogDisposeWarning($"{name} dispose ignored COMException", ex);
-        }
-        catch (InvalidOperationException ex)
-        {
-            SafeLogDisposeWarning($"{name} dispose ignored InvalidOperationException", ex);
+            SafeLog.Warning(_logger, $"{name} dispose ignored {ex.GetType().Name}", ex);
         }
         catch (Exception ex)
         {
-            SafeLogDisposeWarning($"{name} dispose ignored exception", ex);
-        }
-    }
-
-    private void SafeLogDisposeInfo(string message)
-    {
-        try
-        {
-            _logger?.Info(message);
-        }
-        catch
-        {
-            Debug.WriteLine(message);
-        }
-    }
-
-    private void SafeLogDisposeWarning(string message, Exception ex)
-    {
-        var safeMessage = $"{message}. ErrorType={ex.GetType().Name}";
-        try
-        {
-            _logger?.Warning(safeMessage);
-        }
-        catch
-        {
-            Debug.WriteLine(safeMessage);
+            SafeLog.Warning(_logger, $"{name} dispose ignored exception", ex);
         }
     }
 }

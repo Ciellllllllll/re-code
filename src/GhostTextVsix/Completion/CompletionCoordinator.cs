@@ -325,13 +325,6 @@ internal sealed class CompletionCoordinator
         return snapshot.Matches(currentContext);
     }
 
-    private static int CountLines(string text)
-    {
-        return string.IsNullOrEmpty(text)
-            ? 0
-            : text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None).Length;
-    }
-
     private CompletionExecutionOptions CreateRequestOptions(DeepSeekOptionsPage options, bool isAutoCompletion)
     {
         if (isAutoCompletion)
