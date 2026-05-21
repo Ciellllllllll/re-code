@@ -17,7 +17,7 @@ internal sealed class CompletionCoordinator
     private readonly CppDocumentDetector _detector;
     private readonly EditorContextCollector _contextCollector;
     private readonly PromptBuilder _promptBuilder;
-    private readonly CompletionResponseFormatter _formatter;
+    private readonly CompletionIndentNormalizer _normalizer;
     private readonly ActiveTextViewLocator _activeTextViewLocator;
     private readonly CompletionProviderFactory _providerFactory;
     private readonly CompletionCache _cache = new();
@@ -31,7 +31,7 @@ internal sealed class CompletionCoordinator
         CppDocumentDetector detector,
         EditorContextCollector contextCollector,
         PromptBuilder promptBuilder,
-        CompletionResponseFormatter formatter,
+        CompletionIndentNormalizer normalizer,
         ActiveTextViewLocator activeTextViewLocator)
     {
         _settingsManager = settingsManager;
@@ -39,7 +39,7 @@ internal sealed class CompletionCoordinator
         _detector = detector;
         _contextCollector = contextCollector;
         _promptBuilder = promptBuilder;
-        _formatter = formatter;
+        _normalizer = normalizer;
         _activeTextViewLocator = activeTextViewLocator;
         _providerFactory = new CompletionProviderFactory(logger);
     }
@@ -257,7 +257,7 @@ internal sealed class CompletionCoordinator
             }
 
             var completionMode = isAutoCompletion ? CompletionMode.Auto : CompletionMode.Manual;
-            var normalized = _formatter.Normalize(snapshot, providerResponse.Text, requestId, requestOptions.Source, completionMode.ToString(), requestOptions.MaxCompletionLines, requestOptions.MaxCompletionCharacters);
+            var normalized = _normalizer.Normalize(providerResponse.Text, snapshot, requestId, requestOptions.Source, completionMode.ToString(), requestOptions.MaxCompletionLines, requestOptions.MaxCompletionCharacters);
             _logger.Info($"Completion normalized. RequestId={requestId}, Source={requestOptions.Source}, CompletionMode={completionMode}, InsertMode={normalized.InsertMode}, CommitSpanStart={normalized.CommitSpanStart}, CommitSpanLength={normalized.CommitSpanLength}, DisplayTextLength={normalized.DisplayText?.Length ?? 0}, CommitTextLength={normalized.CommitTextLength}, SnapshotVersion={view.TextSnapshot.Version.VersionNumber}, ExpectedSnapshotVersion={normalized.ExpectedSnapshotVersion}");
             _logger.Info($"Completion indent normalized. RequestId={requestId}, Source={requestOptions.Source}, CompletionMode={completionMode}, InsertMode={normalized.InsertMode}, CommitSpanStart={normalized.CommitSpanStart}, CommitSpanLength={normalized.CommitSpanLength}, BaseIndentLength={normalized.BaseIndent?.Length ?? 0}, BaseIndentKind={normalized.BaseIndentKind}, LinesBefore={normalized.LinesBefore}, LinesAfter={normalized.LinesAfter}, FirstLineInline={normalized.FirstLineInline}, IsCurrentLineCommentOnly={normalized.IsCurrentLineCommentOnly}, RemovedCommonIndentLength={normalized.RemovedCommonIndentLength}, DisplayTextLength={normalized.DisplayText?.Length ?? 0}, CommitTextLength={normalized.CommitTextLength}, SnapshotVersion={view.TextSnapshot.Version.VersionNumber}, ExpectedSnapshotVersion={normalized.ExpectedSnapshotVersion}");
             if (string.IsNullOrWhiteSpace(normalized.CommitText))

@@ -51,7 +51,7 @@ public sealed class DeepSeekCompletionPackage : AsyncPackage
         var securityFilter = new SecurityFilter();
         var contextCollector = new EditorContextCollector(detector, securityFilter, logger);
         var promptBuilder = new PromptBuilder();
-        var formatter = new CompletionResponseFormatter();
+        var normalizer = new CompletionIndentNormalizer();
         var editorAdapter = componentModel.GetService<Microsoft.VisualStudio.Editor.IVsEditorAdaptersFactoryService>();
         var viewLocator = new ActiveTextViewLocator(textManager, editorAdapter);
 
@@ -61,7 +61,7 @@ public sealed class DeepSeekCompletionPackage : AsyncPackage
             detector,
             contextCollector,
             promptBuilder,
-            formatter,
+            normalizer,
             viewLocator);
         var commitHandler = new CompletionCommitHandler(_completionCoordinator, logger);
 

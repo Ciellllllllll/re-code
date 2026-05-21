@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Text.RegularExpressions;
-using GhostTextVsix.Editor;
 
 namespace GhostTextVsix.Completion;
 
@@ -52,28 +51,6 @@ internal sealed class CompletionIndentNormalizer
             IsCurrentLineCommentOnly = snapshot.IsCurrentLineCommentOnly,
             CommitPlan = plan
         };
-    }
-
-    public NormalizedCompletion Normalize(
-        string rawText,
-        EditorContext context,
-        long requestId,
-        string source,
-        string completionMode,
-        int maxLines,
-        int maxCharacters)
-    {
-        var snapshot = CompletionRequestSnapshot.Create(
-            context,
-            string.Empty,
-            string.Empty,
-            string.Empty,
-            0,
-            0,
-            0,
-            maxLines,
-            maxCharacters);
-        return Normalize(rawText, snapshot, requestId, source, completionMode, maxLines, maxCharacters);
     }
 
     private static InsertMode DetermineInsertMode(CompletionRequestSnapshot snapshot)
